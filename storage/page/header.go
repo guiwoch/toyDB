@@ -1,0 +1,60 @@
+package page
+
+import "encoding/binary"
+
+const (
+	hdrPageIDOff    = 0  // uint32
+	hdrSlotCountOff = 4  // uint16
+	hdrSlotAllocOff = 6  // uint16 (first free byte after slot directory, grows ->)
+	hdrCellAllocOff = 8  // uint16 (first free byte before cell data, grows <-)
+	hdrFreeSpaceOff = 10 // uint16 (total free space)
+	hdrChecksumOff  = 12 // uint32
+)
+
+func (p *page) pageID() uint32 {
+	return binary.LittleEndian.Uint32(p[hdrPageIDOff:])
+}
+
+func (p *page) setPageID(id uint32) {
+	binary.LittleEndian.PutUint32(p[hdrPageIDOff:], id)
+}
+
+func (p *page) slotCount() uint16 {
+	return binary.LittleEndian.Uint16(p[hdrSlotCountOff:])
+}
+
+func (p *page) setSlotCount(n uint16) {
+	binary.LittleEndian.PutUint16(p[hdrSlotCountOff:], n)
+}
+
+func (p *page) slotAlloc() uint16 {
+	return binary.LittleEndian.Uint16(p[hdrSlotAllocOff:])
+}
+
+func (p *page) setSlotAlloc(n uint16) {
+	binary.LittleEndian.PutUint16(p[hdrSlotAllocOff:], n)
+}
+
+func (p *page) cellAlloc() uint16 {
+	return binary.LittleEndian.Uint16(p[hdrCellAllocOff:])
+}
+
+func (p *page) setCellAlloc(n uint16) {
+	binary.LittleEndian.PutUint16(p[hdrCellAllocOff:], n)
+}
+
+func (p *page) freeSpace() uint16 {
+	return binary.LittleEndian.Uint16(p[hdrFreeSpaceOff:])
+}
+
+func (p *page) setFreeSpace(n uint16) {
+	binary.LittleEndian.PutUint16(p[hdrFreeSpaceOff:], n)
+}
+
+func (p *page) checksum() uint32 {
+	return binary.LittleEndian.Uint32(p[hdrChecksumOff:])
+}
+
+func (p *page) setChecksum(c uint32) {
+	binary.LittleEndian.PutUint32(p[hdrChecksumOff:], c)
+}
