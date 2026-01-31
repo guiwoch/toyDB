@@ -6,12 +6,24 @@ import (
 )
 
 const (
+	keyTypeInt    = 1
+	keyTypeString = 2
+)
+
+const (
+	pageTypeNode = 1
+	pageTypeLeaf = 2
+)
+
+const (
 	hdrPageIDOff    = 0  // uint32
 	hdrSlotCountOff = 4  // uint16
 	hdrSlotAllocOff = 6  // uint16 (first free byte after slot directory, grows ->)
 	hdrCellAllocOff = 8  // uint16 (first free byte before cell data, grows <-)
 	hdrFreeSpaceOff = 10 // uint16 (total free space)
-	hdrChecksumOff  = 12 // uint32
+	hdrPageTypeOff  = 12 // uint8  (leaf=1, internal=2)
+	hdrKeyTypeOff   = 13 // uint8  (int=1, string=2)
+	hdrChecksumOff  = 14 // uint32
 )
 
 func (p *page) pageID() uint32 {
@@ -52,6 +64,22 @@ func (p *page) freeSpace() uint16 {
 
 func (p *page) setFreeSpace(n uint16) {
 	binary.LittleEndian.PutUint16(p[hdrFreeSpaceOff:], n)
+}
+
+func (p *page) pageType() uint8 {
+	return p[hdrPageTypeOff]
+}
+
+func (p *page) setPageType(n uint8) {
+	p[hdrPageTypeOff] = n
+}
+
+func (p *page) keyType() uint8 {
+	return p[hdrKeyTypeOff]
+}
+
+func (p *page) setKeyType(t uint8) {
+	p[hdrKeyTypeOff] = t
 }
 
 func (p *page) checksum() uint32 {
