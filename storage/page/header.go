@@ -1,6 +1,9 @@
 package page
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+	"hash/crc32"
+)
 
 const (
 	hdrPageIDOff    = 0  // uint32
@@ -55,6 +58,18 @@ func (p *page) checksum() uint32 {
 	return binary.LittleEndian.Uint32(p[hdrChecksumOff:])
 }
 
-func (p *page) setChecksum(c uint32) {
+func (p *page) setChecksum() {
+	c := p.calculateChecksum()
 	binary.LittleEndian.PutUint32(p[hdrChecksumOff:], c)
+}
+
+func (p *page) verifyCheckSum() bool {
+	return p.checksum() == p.calculateChecksum()
+}
+
+func (p *page) calculateChecksum() uint32 {
+	checksum := crc32.NewIEEE()
+	checksum.Write(p[0:hdrChecksumOff])
+	checksum.Write(p[hdrChecksumOff+4:])
+	return checksum.Sum32()
 }
