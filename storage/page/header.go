@@ -82,22 +82,20 @@ func (p *page) setKeyType(t uint8) {
 	p[hdrKeyTypeOff] = t
 }
 
-func (p *page) checksum() uint32 {
-	return binary.LittleEndian.Uint32(p[hdrChecksumOff:])
+func (p *page) calculateChecksum() uint32 {
+	hasher := crc32.NewIEEE()
+	hasher.Write(p[0:hdrChecksumOff])
+	hasher.Write(p[hdrChecksumOff+4:])
+	return hasher.Sum32()
 }
 
 func (p *page) setChecksum() {
 	c := p.calculateChecksum()
-	binary.LittleEndian.PutUint32(p[hdrChecksumOff:], c)
+	binary.BigEndian.PutUint32(p[hdrChecksumOff:], c)
 }
 
-func (p *page) verifyCheckSum() bool {
-	return p.checksum() == p.calculateChecksum()
-}
-
-func (p *page) calculateChecksum() uint32 {
-	checksum := crc32.NewIEEE()
-	checksum.Write(p[0:hdrChecksumOff])
-	checksum.Write(p[hdrChecksumOff+4:])
-	return checksum.Sum32()
+func (p *page) verifyChecksum() bool {
+	stored := binary.BigEndian.Uint32(p[hdrChecksumOff:])
+	calculated := p.calculateChecksum()
+	return stored == calculated
 }
