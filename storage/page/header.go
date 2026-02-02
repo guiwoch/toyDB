@@ -27,43 +27,43 @@ const (
 )
 
 func (p *page) pageID() uint32 {
-	return binary.LittleEndian.Uint32(p[hdrPageIDOff:])
+	return binary.BigEndian.Uint32(p[hdrPageIDOff:])
 }
 
 func (p *page) setPageID(id uint32) {
-	binary.LittleEndian.PutUint32(p[hdrPageIDOff:], id)
+	binary.BigEndian.PutUint32(p[hdrPageIDOff:], id)
 }
 
 func (p *page) slotCount() uint16 {
-	return binary.LittleEndian.Uint16(p[hdrSlotCountOff:])
+	return binary.BigEndian.Uint16(p[hdrSlotCountOff:])
 }
 
 func (p *page) setSlotCount(n uint16) {
-	binary.LittleEndian.PutUint16(p[hdrSlotCountOff:], n)
+	binary.BigEndian.PutUint16(p[hdrSlotCountOff:], n)
 }
 
 func (p *page) slotAlloc() uint16 {
-	return binary.LittleEndian.Uint16(p[hdrSlotAllocOff:])
+	return binary.BigEndian.Uint16(p[hdrSlotAllocOff:])
 }
 
 func (p *page) setSlotAlloc(n uint16) {
-	binary.LittleEndian.PutUint16(p[hdrSlotAllocOff:], n)
+	binary.BigEndian.PutUint16(p[hdrSlotAllocOff:], n)
 }
 
 func (p *page) cellAlloc() uint16 {
-	return binary.LittleEndian.Uint16(p[hdrCellAllocOff:])
+	return binary.BigEndian.Uint16(p[hdrCellAllocOff:])
 }
 
 func (p *page) setCellAlloc(n uint16) {
-	binary.LittleEndian.PutUint16(p[hdrCellAllocOff:], n)
+	binary.BigEndian.PutUint16(p[hdrCellAllocOff:], n)
 }
 
 func (p *page) freeSpace() uint16 {
-	return binary.LittleEndian.Uint16(p[hdrFreeSpaceOff:])
+	return binary.BigEndian.Uint16(p[hdrFreeSpaceOff:])
 }
 
 func (p *page) setFreeSpace(n uint16) {
-	binary.LittleEndian.PutUint16(p[hdrFreeSpaceOff:], n)
+	binary.BigEndian.PutUint16(p[hdrFreeSpaceOff:], n)
 }
 
 func (p *page) pageType() uint8 {
