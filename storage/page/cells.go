@@ -25,3 +25,38 @@ func (p *page) writeCell(key, valueOrID []byte) uint16 {
 	p.setCellAlloc(offset)
 	return offset
 }
+
+// getCell returns the entire cell data (header + key + value) at the given slot index.
+func (p *page) getCell(slotIndex uint16) []byte {
+	cellOffset := p.getCellOffset(slotIndex)
+	cellSize := p.getCellSize(slotIndex)
+	return p[cellOffset : cellOffset+cellSize]
+}
+
+// getCellSize returns the size of the cell at the given slot index.
+func (p *page) getCellSize(slotIndex uint16) uint16 {
+	slotOff := pageHeaderSize + slotIndex*slotSize
+	return binary.BigEndian.Uint16(p[slotOff+slotLengthOff:])
+}
+
+func (p *page) compactCells() {
+	n := p.slotCount()
+	var cells []byte
+	var sizes []uint16
+
+	for i := range n {
+		cell := p.getCell(i)
+		cells = append(cells, cell...)
+		sizes = append(sizes, uint16(len(cell)))
+	}
+
+	startOffset := pageSize - len(cells)
+	offset := uint16(startOffset)
+	for i := range n {
+		p.updateOffsetSlot(i, offset)
+		offset += sizes[i]
+	}
+
+	copy(p[startOffset:], cells)
+	p.setCellAlloc(uint16(startOffset))
+}
