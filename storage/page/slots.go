@@ -39,15 +39,3 @@ func (p *page) deleteSlot(i int) uint16 {
 
 	return cellSize
 }
-
-func (p *page) sortSlots() {
-	var slots []slot
-
-	n := p.slotCount()
-	offset := pageHeaderSize
-
-	for i := range n {
-		slots = append(slots, p[offset:offset+slotSize])
-		offset += slotSize
-	}
-}
