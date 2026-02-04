@@ -88,8 +88,3 @@ func (p *page) calculateChecksum() uint32 {
 	hasher.Write(p[hdrChecksumOff+4:])
 	return hasher.Sum32()
 }
-
-func (p *page) setChecksum() {
-	c := p.calculateChecksum()
-	binary.BigEndian.PutUint32(p[hdrChecksumOff:], c)
-}

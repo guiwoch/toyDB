@@ -23,7 +23,6 @@ func NewPage(id uint32, pageType, keyType uint8) *page {
 	p.setFreeSpace(pageSize - pageHeaderSize)
 	p.setPageType(pageType)
 	p.setKeyType(keyType)
-	p.setChecksum()
 	return &p
 }
 
@@ -49,7 +48,6 @@ func NewPageFromRecords(id uint32, pageType, keyType uint8, records Records) *pa
 
 	p.setPageType(pageType)
 	p.setKeyType(keyType)
-	p.setChecksum()
 
 	copy(p[pageHeaderSize:], records.Slots)
 	copy(p[pageSize-cellsSize:], records.Cells)
@@ -132,6 +130,13 @@ func (p *page) VerifyChecksum() bool {
 	stored := binary.BigEndian.Uint32(p[hdrChecksumOff:])
 	calculated := p.calculateChecksum()
 	return stored == calculated
+}
+
+// SetChecksum calculates and stores the page checksum.
+// It should be used before writing the page to disk.
+func (p *page) SetChecksum() {
+	c := p.calculateChecksum()
+	binary.BigEndian.PutUint32(p[hdrChecksumOff:], c)
 }
 
 // RecordCount returns the total number of Records on the page.
