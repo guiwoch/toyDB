@@ -4,8 +4,6 @@ import (
 	"encoding/binary"
 )
 
-type cell []byte
-
 const (
 	cellKeySizeOff       = 0
 	cellValueOrIdSizeOff = 2
