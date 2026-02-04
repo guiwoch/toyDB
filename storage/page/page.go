@@ -47,6 +47,7 @@ func (p *page) InsertRecord(key, valueOrID []byte) error {
 	return nil
 }
 
+// DeleteRecord deletes a slot and its associated cell.
 func (p *page) DeleteRecord(slotIndex int) {
 	cellSize := p.deleteSlot(slotIndex)
 	p.setFreeSpace(p.freeSpace() + slotSize + cellSize)
