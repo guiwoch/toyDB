@@ -13,7 +13,7 @@ const (
 )
 
 // writeSlot writes a new slot and updates the page header.
-func (p *page) writeSlot(cellOffset, cellSize uint16) {
+func (p *Page) writeSlot(cellOffset, cellSize uint16) {
 	slotOff := p.slotAlloc()
 	binary.BigEndian.PutUint16(p[slotOff+slotOffsetOff:], cellOffset)
 	binary.BigEndian.PutUint16(p[slotOff+slotLengthOff:], cellSize)
@@ -22,7 +22,7 @@ func (p *page) writeSlot(cellOffset, cellSize uint16) {
 }
 
 // deleteSlot deletes a slot by index and compacts the slot directory.
-func (p *page) deleteSlot(i int) uint16 {
+func (p *Page) deleteSlot(i int) uint16 {
 	if i < 0 || i >= int(p.slotCount()) {
 		panic(fmt.Sprintf("slot index %d out of bounds [0, %d)", i, p.slotCount()))
 	}
@@ -41,19 +41,19 @@ func (p *page) deleteSlot(i int) uint16 {
 	return cellSize
 }
 
-func (p *page) updateOffsetSlot(i, offset uint16) {
+func (p *Page) updateOffsetSlot(i, offset uint16) {
 	slotOffset := pageHeaderSize + i*slotSize
 	binary.BigEndian.PutUint16(p[slotOffset:], offset)
 }
 
 // getCellOffset returns the cell offset stored in the given slot.
-func (p *page) getCellOffset(slotIndex uint16) uint16 {
+func (p *Page) getCellOffset(slotIndex uint16) uint16 {
 	slotOff := pageHeaderSize + slotIndex*slotSize
 	return binary.BigEndian.Uint16(p[slotOff+slotOffsetOff:])
 }
 
 // findSlot returns the slot index for the given key.
-func (p *page) findSlot(key []byte) (uint16, bool) {
+func (p *Page) findSlot(key []byte) (uint16, bool) {
 	left := uint16(0)
 	n := p.slotCount()
 	if n <= 0 {
