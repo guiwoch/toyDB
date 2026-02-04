@@ -60,3 +60,18 @@ func (p *page) compactCells() {
 	copy(p[startOffset:], cells)
 	p.setCellAlloc(uint16(startOffset))
 }
+
+func (p *page) cellKey(slotIndex uint16) []byte {
+	cellOffset := int(p.getCellOffset(slotIndex))
+	keySize := binary.BigEndian.Uint16(p[cellOffset+cellKeySizeOff:])
+	keyOffset := cellOffset + cellHeaderSize
+	return p[keyOffset : keyOffset+int(keySize)]
+}
+
+func (p *page) cellValue(slotIndex uint16) []byte {
+	cellOffset := int(p.getCellOffset(slotIndex))
+	keySize := binary.BigEndian.Uint16(p[cellOffset+cellKeySizeOff:])
+	valueSize := binary.BigEndian.Uint16(p[cellOffset+cellValueOrIdSizeOff:])
+	valueOffset := cellOffset + cellHeaderSize + int(keySize)
+	return p[valueOffset : valueOffset+int(valueSize)]
+}
