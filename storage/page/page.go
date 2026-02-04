@@ -8,7 +8,7 @@ import (
 
 const (
 	pageSize       = 8192 // 8KB
-	pageHeaderSize = 64   // Includes reseverd space for future expansions
+	pageHeaderSize = 64   // Includes reserved space for future expansions
 )
 
 type page [pageSize]byte
