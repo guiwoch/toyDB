@@ -10,7 +10,7 @@ const (
 	cellHeaderSize       = 4
 )
 
-func (p *page) writeCell(key, valueOrID []byte) uint16 {
+func (p *Page) writeCell(key, valueOrID []byte) uint16 {
 	keySize, valueOrIDSize := uint16(len(key)), uint16(len(valueOrID))
 	cellSize := cellHeaderSize + keySize + valueOrIDSize
 	offset := p.cellAlloc() - cellSize
@@ -25,19 +25,19 @@ func (p *page) writeCell(key, valueOrID []byte) uint16 {
 }
 
 // getCell returns the entire cell data (header + key + value) at the given slot index.
-func (p *page) getCell(slotIndex uint16) []byte {
+func (p *Page) getCell(slotIndex uint16) []byte {
 	cellOffset := p.getCellOffset(slotIndex)
 	cellSize := p.getCellSize(slotIndex)
 	return p[cellOffset : cellOffset+cellSize]
 }
 
 // getCellSize returns the size of the cell at the given slot index.
-func (p *page) getCellSize(slotIndex uint16) uint16 {
+func (p *Page) getCellSize(slotIndex uint16) uint16 {
 	slotOff := pageHeaderSize + slotIndex*slotSize
 	return binary.BigEndian.Uint16(p[slotOff+slotLengthOff:])
 }
 
-func (p *page) compactCells() {
+func (p *Page) compactCells() {
 	n := p.slotCount()
 	var cells []byte
 	var sizes []uint16
@@ -59,14 +59,14 @@ func (p *page) compactCells() {
 	p.setCellAlloc(uint16(startOffset))
 }
 
-func (p *page) cellKey(slotIndex uint16) []byte {
+func (p *Page) cellKey(slotIndex uint16) []byte {
 	cellOffset := int(p.getCellOffset(slotIndex))
 	keySize := binary.BigEndian.Uint16(p[cellOffset+cellKeySizeOff:])
 	keyOffset := cellOffset + cellHeaderSize
 	return p[keyOffset : keyOffset+int(keySize)]
 }
 
-func (p *page) cellValue(slotIndex uint16) []byte {
+func (p *Page) cellValue(slotIndex uint16) []byte {
 	cellOffset := int(p.getCellOffset(slotIndex))
 	keySize := binary.BigEndian.Uint16(p[cellOffset+cellKeySizeOff:])
 	valueSize := binary.BigEndian.Uint16(p[cellOffset+cellValueOrIdSizeOff:])
