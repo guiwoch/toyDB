@@ -1,6 +1,7 @@
 package page
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 )
@@ -49,4 +50,28 @@ func (p *page) updateOffsetSlot(i, offset uint16) {
 func (p *page) getCellOffset(slotIndex uint16) uint16 {
 	slotOff := pageHeaderSize + slotIndex*slotSize
 	return binary.BigEndian.Uint16(p[slotOff+slotOffsetOff:])
+}
+
+// findSlot returns the slot index for the given key.
+func (p *page) findSlot(key []byte) (uint16, bool) {
+	left := uint16(0)
+	n := p.slotCount()
+	if n <= 0 {
+		return 0, false
+	}
+	right := n - 1
+
+	for left <= right {
+		mid := (left + right) / 2
+		c := bytes.Compare(key, p.cellKey(mid))
+		if c == 0 {
+			return mid, true
+		}
+		if c == 1 { // the key is bigger than the midpoint
+			left = mid + 1
+		} else {
+			right = mid - 1
+		}
+	}
+	return 0, false
 }
