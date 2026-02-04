@@ -27,6 +27,45 @@ func NewPage(id uint32, pageType, keyType uint8) *page {
 	return &p
 }
 
+type Records struct {
+	Slots []byte
+	Cells []byte
+}
+
+// NewPageFromRecords creates a new page and populates it with the contents from Records.
+// The slots need to be properly defragmented while the cells are lazily defragmented by the page.
+func NewPageFromRecords(id uint32, pageType, keyType uint8, records Records) *page {
+	var p page
+	p.setPageID(id)
+
+	slotsSize := uint16(len(records.Slots))
+	slotCount := slotsSize / slotSize
+	p.setSlotAlloc(pageHeaderSize + slotsSize)
+	p.setSlotCount(slotCount)
+
+	cellsSize := uint16(len(records.Cells))
+	p.setCellAlloc(pageSize - cellsSize)
+	p.setFreeSpace(pageSize - (pageHeaderSize + cellsSize + slotsSize))
+
+	p.setPageType(pageType)
+	p.setKeyType(keyType)
+	p.setChecksum()
+
+	copy(p[pageHeaderSize:], records.Slots)
+	copy(p[pageSize-cellsSize:], records.Cells)
+	return &p
+}
+
+// Records returns the slots and cells from the page.
+func (p *page) Records() Records {
+	slots := p[pageHeaderSize:p.slotAlloc()]
+	cells := p[p.cellAlloc():pageSize]
+	return Records{
+		Slots: slots,
+		Cells: cells,
+	}
+}
+
 var ErrPageFull = errors.New("insufficient space on page")
 
 // InsertRecord adds a new key-value pair to the page.
@@ -88,8 +127,14 @@ func (p *page) findSlot(key []byte) (uint16, bool) {
 	return 0, false
 }
 
+// VerifyChecksum calculates the page checksum and compares it to the stored one.
 func (p *page) VerifyChecksum() bool {
 	stored := binary.BigEndian.Uint32(p[hdrChecksumOff:])
 	calculated := p.calculateChecksum()
 	return stored == calculated
+}
+
+// RecordCount returns the total number of Records on the page.
+func (p *page) RecordCount() uint16 {
+	return p.slotCount()
 }
