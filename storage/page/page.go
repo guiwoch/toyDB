@@ -3,6 +3,7 @@ package page
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 )
 
@@ -85,4 +86,10 @@ func (p *page) findSlot(key []byte) (uint16, bool) {
 		}
 	}
 	return 0, false
+}
+
+func (p *page) VerifyChecksum() bool {
+	stored := binary.BigEndian.Uint32(p[hdrChecksumOff:])
+	calculated := p.calculateChecksum()
+	return stored == calculated
 }

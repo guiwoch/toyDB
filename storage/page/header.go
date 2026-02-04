@@ -93,9 +93,3 @@ func (p *page) setChecksum() {
 	c := p.calculateChecksum()
 	binary.BigEndian.PutUint32(p[hdrChecksumOff:], c)
 }
-
-func (p *page) verifyChecksum() bool {
-	stored := binary.BigEndian.Uint32(p[hdrChecksumOff:])
-	calculated := p.calculateChecksum()
-	return stored == calculated
-}
