@@ -5,8 +5,6 @@ import (
 	"fmt"
 )
 
-type slot []byte
-
 const (
 	slotOffsetOff = 0 // Offset of the cell
 	slotLengthOff = 2 // Length of the pointed cell
