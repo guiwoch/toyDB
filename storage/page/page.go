@@ -118,3 +118,7 @@ func (p *page) SetChecksum() {
 func (p *page) RecordCount() uint16 {
 	return p.slotCount()
 }
+
+func (p *page) PageType() uint8 {
+	return p.pageType()
+}
