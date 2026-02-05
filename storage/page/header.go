@@ -6,13 +6,13 @@ import (
 )
 
 const (
-	keyTypeInt    = 1
-	keyTypeString = 2
+	KeyTypeInt    = 1
+	KeyTypeString = 2
 )
 
 const (
-	pageTypeNode = 1
-	pageTypeLeaf = 2
+	PageTypeNode = 1
+	PageTypeLeaf = 2
 )
 
 const (
