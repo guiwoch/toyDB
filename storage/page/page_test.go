@@ -1,0 +1,52 @@
+package page_test
+
+import (
+	"testing"
+
+	"github.com/guiwoch/toyDB/storage/page"
+)
+
+type record struct {
+	key   []byte
+	value []byte
+}
+type records []record
+
+// Creates a page and populates it with records
+func newTestPage(t *testing.T, records records) *page.Page {
+	t.Helper()
+	p := page.NewPage(0, page.PageTypeNode, page.KeyTypeInt)
+	for _, r := range records {
+		err := p.InsertRecord(r.key, r.value)
+		if err != nil {
+			t.Fatalf("Insertion failed: %v", err)
+		}
+	}
+	return p
+}
+
+func TestRecordCount(t *testing.T) {
+	tests := []struct {
+		name    string
+		records records
+		want    uint16
+	}{
+		{"empty page", nil, 0},
+		{"one record", records{{[]byte("k"), []byte("v")}}, 1},
+		{"three records", records{
+			{[]byte("a"), []byte("1")},
+			{[]byte("b"), []byte("2")},
+			{[]byte("c"), []byte("3")},
+		}, 3},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := newTestPage(t, tt.records)
+			got := p.RecordCount()
+			if got != tt.want {
+				t.Errorf("RecordCount() = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
