@@ -94,7 +94,7 @@ func (p *Page) DeleteRecord(slotIndex int) {
 func (p *Page) Get(key []byte) ([]byte, bool) {
 	i, ok := p.findSlot(key)
 	if !ok {
-		return []byte(""), false
+		return nil, false
 	}
 
 	return p.cellValue(i), true
