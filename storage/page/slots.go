@@ -22,15 +22,15 @@ func (p *Page) writeSlot(cellOffset, cellSize uint16) {
 }
 
 // deleteSlot deletes a slot by index and compacts the slot directory.
-func (p *Page) deleteSlot(i int) uint16 {
-	if i < 0 || i >= int(p.slotCount()) {
+func (p *Page) deleteSlot(i uint16) uint16 {
+	if i >= p.slotCount() {
 		panic(fmt.Sprintf("slot index %d out of bounds [0, %d)", i, p.slotCount()))
 	}
 
 	slotOff := pageHeaderSize + i*slotSize
 	cellSize := binary.BigEndian.Uint16(p[slotOff+slotLengthOff:])
 
-	isLastSlot := i == int(p.slotCount())-1
+	isLastSlot := i == p.slotCount()-1
 	if !isLastSlot { // handles compaction
 		copy(p[slotOff:], p[slotOff+slotSize:p.slotAlloc()])
 	}
