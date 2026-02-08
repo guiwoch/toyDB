@@ -41,6 +41,7 @@ func (p *Page) deleteSlot(i uint16) uint16 {
 	return cellSize
 }
 
+// updateOffsetSlot updates the cell offset stored at slot i.
 func (p *Page) updateOffsetSlot(i, offset uint16) {
 	slotOffset := pageHeaderSize + i*slotSize
 	binary.BigEndian.PutUint16(p[slotOffset:], offset)

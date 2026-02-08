@@ -10,6 +10,9 @@ const (
 	cellHeaderSize       = 4
 )
 
+// writeCell writes a new cell.
+// No explicit delete operation is needed: cells without a corresponding slot
+// are deleted during compaction.
 func (p *Page) writeCell(key, valueOrID []byte) uint16 {
 	keySize, valueOrIDSize := uint16(len(key)), uint16(len(valueOrID))
 	cellSize := cellHeaderSize + keySize + valueOrIDSize
@@ -37,6 +40,7 @@ func (p *Page) getCellSize(slotIndex uint16) uint16 {
 	return binary.BigEndian.Uint16(p[slotOff+slotLengthOff:])
 }
 
+// compactCells compacts the cells and updates the slots cell offsets
 func (p *Page) compactCells() {
 	n := p.slotCount()
 	var cells []byte
@@ -59,6 +63,7 @@ func (p *Page) compactCells() {
 	p.setCellAlloc(uint16(startOffset))
 }
 
+// cellKey returns the key field of a cell
 func (p *Page) cellKey(slotIndex uint16) []byte {
 	cellOffset := int(p.getCellOffset(slotIndex))
 	keySize := binary.BigEndian.Uint16(p[cellOffset+cellKeySizeOff:])
@@ -66,6 +71,7 @@ func (p *Page) cellKey(slotIndex uint16) []byte {
 	return p[keyOffset : keyOffset+int(keySize)]
 }
 
+// cellValue returns the value field of a cell
 func (p *Page) cellValue(slotIndex uint16) []byte {
 	cellOffset := int(p.getCellOffset(slotIndex))
 	keySize := binary.BigEndian.Uint16(p[cellOffset+cellKeySizeOff:])
