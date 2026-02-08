@@ -54,23 +54,24 @@ func (p *Page) getCellOffset(slotIndex uint16) uint16 {
 
 // findSlot returns the slot index for the given key.
 func (p *Page) findSlot(key []byte) (uint16, bool) {
-	left := uint16(0)
 	n := p.slotCount()
-	if n <= 0 {
+	if n == 0 {
 		return 0, false
 	}
-	right := n - 1
 
-	for left <= right {
-		mid := (left + right) / 2
+	left, right := uint16(0), n // [left, right)
+
+	for left < right {
+		mid := left + (right-left)/2
 		c := bytes.Compare(key, p.cellKey(mid))
+
 		if c == 0 {
 			return mid, true
 		}
-		if c == 1 { // the key is bigger than the midpoint
+		if c > 0 {
 			left = mid + 1
 		} else {
-			right = mid - 1
+			right = mid
 		}
 	}
 	return 0, false
