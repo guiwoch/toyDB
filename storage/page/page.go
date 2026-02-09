@@ -64,11 +64,20 @@ func (p *Page) Records() Records {
 	}
 }
 
-var ErrPageFull = errors.New("insufficient space on page")
+var (
+	ErrPageFull     = errors.New("insufficient space on page")
+	ErrDuplicateKey = errors.New("key already exists")
+)
 
-// InsertRecord adds a new key-value pair to the page.
+// InsertRecord adds a new key-value pair to the page in sorted order.
+// Returns ErrDuplicateKey if the key already exists.
 // Returns ErrPageFull if insufficient space even after compaction.
 func (p *Page) InsertRecord(key, valueOrID []byte) error {
+	i, found := p.findSlot(key)
+	if found {
+		return ErrDuplicateKey
+	}
+
 	cellSize := cellHeaderSize + uint16(len(key)) + uint16(len(valueOrID))
 	recordSize := slotSize + cellSize
 	freeContiguosSpace := p.cellAlloc() - p.slotAlloc()
@@ -81,7 +90,7 @@ func (p *Page) InsertRecord(key, valueOrID []byte) error {
 	}
 
 	offset := p.writeCell(key, valueOrID)
-	p.writeSlot(offset, cellSize)
+	p.writeSlot(offset, cellSize, i)
 	return nil
 }
 

@@ -3,6 +3,7 @@ package page
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 )
 
 const (
@@ -11,12 +12,21 @@ const (
 	slotSize      = 4
 )
 
-// writeSlot writes a new slot and updates the page header.
-func (p *Page) writeSlot(cellOffset, cellSize uint16) {
-	slotOff := p.slotAlloc()
+// writeSlot writes a new slot at position i, shifting subsequent slots right.
+func (p *Page) writeSlot(cellOffset, cellSize, i uint16) {
+	if i > p.slotCount() {
+		panic(fmt.Sprintf("slot index %d out of bounds [0, %d]", i, p.slotCount()))
+	}
+	slotOff := pageHeaderSize + i*slotSize
+	end := p.slotAlloc()
+
+	if slotOff < end {
+		copy(p[slotOff+slotSize:], p[slotOff:end])
+	}
+
 	binary.BigEndian.PutUint16(p[slotOff+slotOffsetOff:], cellOffset)
 	binary.BigEndian.PutUint16(p[slotOff+slotLengthOff:], cellSize)
-	p.setSlotAlloc(slotOff + slotSize)
+	p.setSlotAlloc(end + slotSize)
 	p.setSlotCount(p.slotCount() + 1)
 	p.setFreeSpace(p.freeSpace() - slotSize)
 }
@@ -34,19 +44,17 @@ func (p *Page) getCellOffset(slotIndex uint16) uint16 {
 	return binary.BigEndian.Uint16(p[slotOff+slotOffsetOff:])
 }
 
-// findSlot returns the slot index for the given key.
+// findSlot returns the slot index for the given key if found, or the insertion
+// point where the key would be placed to maintain sorted order.
 func (p *Page) findSlot(key []byte) (uint16, bool) {
 	n := p.slotCount()
 	if n == 0 {
 		return 0, false
 	}
-
 	left, right := uint16(0), n // [left, right)
-
 	for left < right {
 		mid := left + (right-left)/2
 		c := bytes.Compare(key, p.cellKey(mid))
-
 		if c == 0 {
 			return mid, true
 		}
@@ -56,5 +64,5 @@ func (p *Page) findSlot(key []byte) (uint16, bool) {
 			right = mid
 		}
 	}
-	return 0, false
+	return left, false
 }
