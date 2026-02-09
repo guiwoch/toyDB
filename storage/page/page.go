@@ -26,8 +26,9 @@ func NewPage(id uint32, pageType, keyType uint8) *Page {
 }
 
 type Records struct {
-	Slots []byte
-	Cells []byte
+	Slots        []byte
+	Cells        []byte
+	RightPointer uint32
 }
 
 // NewPageFromRecords creates a new page and populates it with the contents from Records.
@@ -50,6 +51,7 @@ func NewPageFromRecords(id uint32, pageType, keyType uint8, records Records) *Pa
 
 	copy(p[pageHeaderSize:], records.Slots)
 	copy(p[pageSize-cellsSize:], records.Cells)
+	p.setRightPointer(records.RightPointer)
 	return &p
 }
 
@@ -58,8 +60,9 @@ func (p *Page) Records() Records {
 	slots := p[pageHeaderSize:p.slotAlloc()]
 	cells := p[p.cellAlloc():pageSize]
 	return Records{
-		Slots: slots,
-		Cells: cells,
+		Slots:        slots,
+		Cells:        cells,
+		RightPointer: p.rightPointer(),
 	}
 }
 
@@ -145,4 +148,14 @@ func (p *Page) RecordCount() uint16 {
 
 func (p *Page) PageType() uint8 {
 	return p.pageType()
+}
+
+func (p *Page) RightPointer() uint32 {
+	return p.rightPointer()
+}
+
+func (p *Page) SetRightPointer(n uint32) {
+	p.setRightPointer(n)
+}
+
 }
