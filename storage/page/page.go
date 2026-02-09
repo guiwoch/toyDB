@@ -4,6 +4,7 @@ package page
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 )
 
 const (
@@ -84,10 +85,22 @@ func (p *Page) InsertRecord(key, valueOrID []byte) error {
 	return nil
 }
 
-// DeleteRecord deletes a slot and its associated cell.
-func (p *Page) DeleteRecord(slotIndex uint16) {
-	cellSize := p.deleteSlot(slotIndex)
-	p.setFreeSpace(p.freeSpace() + slotSize + cellSize)
+// DeleteRecord deletes a record by slot index and compacts the slot directory.
+func (p *Page) DeleteRecord(i uint16) {
+	if i >= p.slotCount() {
+		panic(fmt.Sprintf("slot index %d out of bounds [0, %d)", i, p.slotCount()))
+	}
+
+	slotOff := pageHeaderSize + i*slotSize
+
+	isLastSlot := i == p.slotCount()-1
+	if !isLastSlot {
+		copy(p[slotOff:], p[slotOff+slotSize:p.slotAlloc()])
+	}
+
+	p.setSlotAlloc(p.slotAlloc() - slotSize)
+	p.setSlotCount(p.slotCount() - 1)
+	p.setFreeSpace(p.freeSpace() + slotSize)
 }
 
 // Get returns the value associated with the given key.

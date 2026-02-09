@@ -24,6 +24,7 @@ func (p *Page) writeCell(key, valueOrID []byte) uint16 {
 	copy(p[offset+cellHeaderSize+keySize:], valueOrID)
 
 	p.setCellAlloc(offset)
+	p.setFreeSpace(p.freeSpace() - (cellSize))
 	return offset
 }
 

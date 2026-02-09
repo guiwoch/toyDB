@@ -3,7 +3,6 @@ package page
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 )
 
 const (
@@ -19,27 +18,9 @@ func (p *Page) writeSlot(cellOffset, cellSize uint16) {
 	binary.BigEndian.PutUint16(p[slotOff+slotLengthOff:], cellSize)
 	p.setSlotAlloc(slotOff + slotSize)
 	p.setSlotCount(p.slotCount() + 1)
+	p.setFreeSpace(p.freeSpace() - slotSize)
 }
 
-// deleteSlot deletes a slot by index and compacts the slot directory.
-func (p *Page) deleteSlot(i uint16) uint16 {
-	if i >= p.slotCount() {
-		panic(fmt.Sprintf("slot index %d out of bounds [0, %d)", i, p.slotCount()))
-	}
-
-	slotOff := pageHeaderSize + i*slotSize
-	cellSize := binary.BigEndian.Uint16(p[slotOff+slotLengthOff:])
-
-	isLastSlot := i == p.slotCount()-1
-	if !isLastSlot { // handles compaction
-		copy(p[slotOff:], p[slotOff+slotSize:p.slotAlloc()])
-	}
-
-	p.setSlotAlloc(p.slotAlloc() - slotSize)
-	p.setSlotCount(p.slotCount() - 1)
-
-	return cellSize
-}
 
 // updateOffsetSlot updates the cell offset stored at slot i.
 func (p *Page) updateOffsetSlot(i, offset uint16) {
