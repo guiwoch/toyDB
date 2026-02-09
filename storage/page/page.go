@@ -2,6 +2,7 @@
 package page
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 )
@@ -75,7 +76,7 @@ var (
 // Returns ErrDuplicateKey if the key already exists.
 // Returns ErrPageFull if insufficient space even after compaction.
 func (p *Page) InsertRecord(key, valueOrID []byte) error {
-	i, found := p.findSlot(key)
+	i, found := p.SearchKey(key)
 	if found {
 		return ErrDuplicateKey
 	}
@@ -99,7 +100,7 @@ func (p *Page) InsertRecord(key, valueOrID []byte) error {
 // DeleteRecord deletes the record with the given key and compacts the slot directory.
 // Returns false if the key is not found.
 func (p *Page) DeleteRecord(key []byte) bool {
-	i, found := p.findSlot(key)
+	i, found := p.SearchKey(key)
 	if !found {
 		return false
 	}
@@ -119,7 +120,7 @@ func (p *Page) DeleteRecord(key []byte) bool {
 
 // Get returns the value associated with the given key.
 func (p *Page) Get(key []byte) ([]byte, bool) {
-	i, ok := p.findSlot(key)
+	i, ok := p.SearchKey(key)
 	if !ok {
 		return nil, false
 	}
@@ -158,4 +159,25 @@ func (p *Page) SetRightPointer(n uint32) {
 	p.setRightPointer(n)
 }
 
+// SearchKey returns the slot index for the given key if found, or the insertion
+// point where the key would be placed to maintain sorted order.
+func (p *Page) SearchKey(key []byte) (uint16, bool) {
+	n := p.slotCount()
+	if n == 0 {
+		return 0, false
+	}
+	left, right := uint16(0), n // [left, right)
+	for left < right {
+		mid := left + (right-left)/2
+		c := bytes.Compare(key, p.cellKey(mid))
+		if c == 0 {
+			return mid, true
+		}
+		if c > 0 {
+			left = mid + 1
+		} else {
+			right = mid
+		}
+	}
+	return left, false
 }
