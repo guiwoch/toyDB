@@ -130,8 +130,8 @@ func (p *Page) Get(key []byte) ([]byte, bool) {
 	return p.cellValue(i), true
 }
 
-// GetByIndex returns the value at the given slot index.
-func (p *Page) GetByIndex(slotIndex uint16) []byte {
+// ValueByIndex returns the value at the given slot index.
+func (p *Page) ValueByIndex(slotIndex uint16) []byte {
 	if slotIndex >= p.slotCount() {
 		panic(fmt.Sprintf("slot index %d out of bounds [0, %d)", slotIndex, p.slotCount()))
 	}
