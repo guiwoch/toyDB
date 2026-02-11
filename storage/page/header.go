@@ -11,8 +11,8 @@ const (
 )
 
 const (
-	PageTypeNode = 1
-	PageTypeLeaf = 2
+	PageTypeInternal = 1
+	PageTypeLeaf     = 2
 )
 
 const (
@@ -21,7 +21,7 @@ const (
 	hdrSlotAllocOff = 6  // uint16 (first free byte after slot directory, grows ->)
 	hdrCellAllocOff = 8  // uint16 (first free byte before cell data, grows <-)
 	hdrFreeSpaceOff = 10 // uint16 (total free space)
-	hdrPageTypeOff  = 12 // uint8  (node=1, leaf=2)
+	hdrPageTypeOff  = 12 // uint8  (internal=1, leaf=2)
 	hdrKeyTypeOff   = 13 // uint8  (int=1, string=2)
 	hdrChecksumOff  = 14 // uint32
 	hdrRightPointer = 18 // uint32
