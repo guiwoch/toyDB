@@ -114,7 +114,8 @@ func (p *Page) DeleteRecord(key []byte) bool {
 
 	p.setSlotAlloc(p.slotAlloc() - slotSize)
 	p.setSlotCount(p.slotCount() - 1)
-	p.setFreeSpace(p.freeSpace() + slotSize)
+	cellSize := uint16(cellHeaderSize + len(p.cellKey(i)) + len(p.cellValue(i)))
+	p.setFreeSpace(p.freeSpace() + slotSize + cellSize)
 	return true
 }
 
