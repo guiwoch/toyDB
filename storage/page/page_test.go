@@ -16,7 +16,7 @@ type records []record
 // Creates a page and populates it with records
 func newTestPage(t *testing.T, records records) *page.Page {
 	t.Helper()
-	p := page.NewPage(0, page.PageTypeNode, page.KeyTypeInt)
+	p := page.NewPage(0, page.PageTypeInternal, page.KeyTypeInt)
 	for _, r := range records {
 		err := p.InsertRecord(r.key, r.value)
 		if err != nil {
@@ -79,6 +79,29 @@ func TestGet(t *testing.T) {
 			[]byte("b"), []byte("2"), true,
 		},
 		{
+			"Get non existent record",
+			records{
+				{[]byte("a"), []byte("1")},
+				{[]byte("b"), []byte("2")},
+				{[]byte("c"), []byte("3")},
+			},
+			[]byte("z"), nil, false,
+		},
+		{
+			"Get from single record (underflow risk if bad binary-search)",
+			records{
+				{[]byte("a"), []byte("1")},
+			},
+			[]byte("a"), []byte("1"), true,
+		},
+		{
+			"Get from single record (underflow risk if bad binary-search) 2",
+			records{
+				{[]byte("a"), []byte("1")},
+			},
+			[]byte("z"), nil, false,
+		},
+		{
 			"Get record from empty page",
 			records{},
 			[]byte("a"), nil, false,
@@ -94,6 +117,37 @@ func TestGet(t *testing.T) {
 			}
 			if gotFound != tt.wantFound {
 				t.Errorf("Get() found = %v, want %v", gotFound, tt.wantFound)
+			}
+		})
+	}
+}
+
+func TestDeleteRecord(t *testing.T) {
+	tests := []struct {
+		name    string
+		records records
+		key     []byte
+	}{
+		{
+			"Case1",
+			records{
+				{[]byte("a"), []byte("1")},
+				{[]byte("b"), []byte("2")},
+				{[]byte("c"), []byte("3")},
+			},
+			[]byte("a"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := newTestPage(t, tt.records)
+			ok := p.DeleteRecord(tt.key)
+			if !ok {
+				t.Error("DeleteRecord key not found")
+			}
+			if _, found := p.Get(tt.key); found {
+				t.Errorf("Deleted key still found")
 			}
 		})
 	}
