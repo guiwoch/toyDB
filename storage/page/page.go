@@ -177,8 +177,8 @@ func (p *Page) SetRightPointer(n uint32) {
 	p.setRightPointer(n)
 }
 
-// SearchKey returns the slot index for the given key if found, or the insertion
-// point where the key would be placed to maintain sorted order.
+// SearchKey returns the position where the key exists or would be inserted to
+// maintain sorted order. The bool indicates whether the key was found.
 func (p *Page) SearchKey(key []byte) (uint16, bool) {
 	n := p.slotCount()
 	if n == 0 {
