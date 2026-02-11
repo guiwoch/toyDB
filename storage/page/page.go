@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 )
 
 const (
@@ -127,6 +128,22 @@ func (p *Page) Get(key []byte) ([]byte, bool) {
 	}
 
 	return p.cellValue(i), true
+}
+
+// GetByIndex returns the value at the given slot index.
+func (p *Page) GetByIndex(slotIndex uint16) []byte {
+	if slotIndex >= p.slotCount() {
+		panic(fmt.Sprintf("slot index %d out of bounds [0, %d)", slotIndex, p.slotCount()))
+	}
+	return p.cellValue(slotIndex)
+}
+
+// KeyByIndex returns the key at the given slot index.
+func (p *Page) KeyByIndex(slotIndex uint16) []byte {
+	if slotIndex >= p.slotCount() {
+		panic(fmt.Sprintf("slot index %d out of bounds [0, %d)", slotIndex, p.slotCount()))
+	}
+	return p.cellKey(slotIndex)
 }
 
 // VerifyChecksum calculates the page checksum and compares it to the stored one.
