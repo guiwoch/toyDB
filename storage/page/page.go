@@ -199,3 +199,7 @@ func (p *Page) SearchKey(key []byte) (uint16, bool) {
 	}
 	return left, false
 }
+
+func (p *Page) FreeSpace() uint16 {
+	return p.freeSpace()
+}
