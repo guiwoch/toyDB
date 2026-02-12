@@ -182,6 +182,10 @@ func (p *Page) RecordCount() uint16 {
 	return p.slotCount()
 }
 
+func (p *Page) PageID() uint32 {
+	return p.pageID()
+}
+
 func (p *Page) PageType() uint8 {
 	return p.pageType()
 }
