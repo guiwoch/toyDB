@@ -57,11 +57,28 @@ func NewPageFromRecords(id uint32, pageType, keyType uint8, records Records) *Pa
 	return &p
 }
 
-// Records returns the slots and cells from the page.
-func (p *Page) Records() Records {
-	slots := p[pageHeaderSize:p.slotAlloc()]
-	cells := p[p.cellAlloc():pageSize]
-	return Records{
+// ExtractRecords returns a copy of the slots and cells for the range [from, to).
+// Slot offsets are rewritten to point into the cells correctly.
+// The source page is not modified.
+func (p *Page) ExtractRecords(from, to uint16) *Records {
+	if from > to || to > p.slotCount() {
+		panic(fmt.Sprintf("bad range [%d, %d) with %d records", from, to, p.slotCount()))
+	}
+
+	var slots []byte
+	var cells []byte
+	for i := from; i < to; i++ {
+		cell := p.getCell(i)
+		cellOffset := uint16(pageSize - len(cells) - len(cell))
+
+		slot := make([]byte, slotSize)
+		binary.BigEndian.PutUint16(slot[slotOffsetOff:], cellOffset)
+		binary.BigEndian.PutUint16(slot[slotLengthOff:], uint16(len(cell)))
+		slots = append(slots, slot...)
+		cells = append(cells, cell...)
+	}
+
+	return &Records{
 		Slots:        slots,
 		Cells:        cells,
 		RightPointer: p.rightPointer(),
