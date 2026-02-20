@@ -65,17 +65,26 @@ func (p *Page) ExtractRecords(from, to uint16) *Records {
 		panic(fmt.Sprintf("bad range [%d, %d) with %d records", from, to, p.slotCount()))
 	}
 
-	var slots []byte
+	// First pass: collect cells and their sizes.
 	var cells []byte
+	var cellSizes []uint16
 	for i := from; i < to; i++ {
 		cell := p.getCell(i)
-		cellOffset := uint16(pageSize - len(cells) - len(cell))
+		cells = append(cells, cell...)
+		cellSizes = append(cellSizes, uint16(len(cell)))
+	}
 
+	// Second pass: compute correct page offsets now that totalCellsSize is known.
+	totalCellsSize := uint16(len(cells))
+	var slots []byte
+	bytesBeforeCell := uint16(0)
+	for _, size := range cellSizes {
+		cellOffset := pageSize - totalCellsSize + bytesBeforeCell
 		slot := make([]byte, slotSize)
 		binary.BigEndian.PutUint16(slot[slotOffsetOff:], cellOffset)
-		binary.BigEndian.PutUint16(slot[slotLengthOff:], uint16(len(cell)))
+		binary.BigEndian.PutUint16(slot[slotLengthOff:], size)
 		slots = append(slots, slot...)
-		cells = append(cells, cell...)
+		bytesBeforeCell += size
 	}
 
 	return &Records{
