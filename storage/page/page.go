@@ -35,7 +35,7 @@ type Records struct {
 
 // NewPageFromRecords creates a new page and populates it with the contents from Records.
 // The slots need to be properly defragmented while the cells are lazily defragmented by the page.
-func NewPageFromRecords(id uint32, pageType, keyType uint8, records Records) *Page {
+func NewPageFromRecords(id uint32, pageType, keyType uint8, records *Records) *Page {
 	var p Page
 	p.setPageID(id)
 

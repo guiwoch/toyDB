@@ -35,7 +35,7 @@ func (pager *Pager) AllocatePage(pageType, keyType uint8) *page.Page {
 	return newPage
 }
 
-func (pager *Pager) AllocatePageFromRecords(pageType, keyType uint8, records page.Records) *page.Page {
+func (pager *Pager) AllocatePageFromRecords(pageType, keyType uint8, records *page.Records) *page.Page {
 	id := pager.allocateID()
 	newPage := page.NewPageFromRecords(id, pageType, keyType, records)
 
