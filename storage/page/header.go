@@ -11,8 +11,8 @@ const (
 )
 
 const (
-	PageTypeInternal = 1
-	PageTypeLeaf     = 2
+	TypeInternal = 1
+	TypeLeaf     = 2
 )
 
 const (

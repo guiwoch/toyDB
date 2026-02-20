@@ -20,7 +20,7 @@ func New(keyType uint8) *Btree {
 	pgr := pager.NewPager()
 	return &Btree{
 		pager:   pgr,
-		root:    pgr.AllocatePage(page.PageTypeLeaf, keyType),
+		root:    pgr.AllocatePage(page.TypeLeaf, keyType),
 		keyType: keyType,
 	}
 }
@@ -29,7 +29,7 @@ func New(keyType uint8) *Btree {
 // with the given key. Returns (nil, false) if the key is not found.
 func (b *Btree) Search(key []byte) ([]byte, bool) {
 	p := b.root
-	for p.PageType() == page.PageTypeInternal {
+	for p.PageType() == page.TypeInternal {
 		i, found := p.SearchKey(key)
 		if found {
 			// Equal keys go right, so follow the right child (i+1).

@@ -16,7 +16,7 @@ type records []record
 // Creates a page and populates it with records
 func newTestPage(t *testing.T, records records) *page.Page {
 	t.Helper()
-	p := page.NewPage(0, page.PageTypeInternal, page.KeyTypeInt)
+	p := page.NewPage(0, page.TypeInternal, page.KeyTypeInt)
 	for _, r := range records {
 		err := p.InsertRecord(r.key, r.value)
 		if err != nil {
