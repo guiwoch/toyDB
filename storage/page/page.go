@@ -53,7 +53,7 @@ func NewPageFromRecords(id uint32, pageType, keyType uint8, records *Records) *P
 
 	copy(p[pageHeaderSize:], records.Slots)
 	copy(p[pageSize-cellsSize:], records.Cells)
-	p.setRightPointer(records.RightPointer)
+	p.SetRightPointer(records.RightPointer)
 	return &p
 }
 
@@ -90,7 +90,7 @@ func (p *Page) ExtractRecords(from, to uint16) *Records {
 	return &Records{
 		Slots:        slots,
 		Cells:        cells,
-		RightPointer: p.rightPointer(),
+		RightPointer: p.RightPointer(),
 	}
 }
 
@@ -112,7 +112,7 @@ func (p *Page) InsertRecord(key, valueOrID []byte) error {
 	recordSize := slotSize + cellSize
 	freeContiguosSpace := p.cellAlloc() - p.slotAlloc()
 	if recordSize > freeContiguosSpace {
-		if recordSize > p.freeSpace() {
+		if recordSize > p.FreeSpace() {
 			return ErrPageFull
 		} else {
 			p.compactCells()
@@ -142,7 +142,7 @@ func (p *Page) DeleteRecord(key []byte) bool {
 	p.setSlotAlloc(p.slotAlloc() - slotSize)
 	p.setSlotCount(p.slotCount() - 1)
 	cellSize := uint16(cellHeaderSize + len(p.cellKey(i)) + len(p.cellValue(i)))
-	p.setFreeSpace(p.freeSpace() + slotSize + cellSize)
+	p.setFreeSpace(p.FreeSpace() + slotSize + cellSize)
 	return true
 }
 
@@ -199,21 +199,6 @@ func (p *Page) RecordCount() uint16 {
 	return p.slotCount()
 }
 
-func (p *Page) PageID() uint32 {
-	return p.pageID()
-}
-
-func (p *Page) PageType() uint8 {
-	return p.pageType()
-}
-
-func (p *Page) RightPointer() uint32 {
-	return p.rightPointer()
-}
-
-func (p *Page) SetRightPointer(n uint32) {
-	p.setRightPointer(n)
-}
 
 // SearchKey returns the position where the key exists or would be inserted to
 // maintain sorted order. The bool indicates whether the key was found.
@@ -238,6 +223,3 @@ func (p *Page) SearchKey(key []byte) (uint16, bool) {
 	return left, false
 }
 
-func (p *Page) FreeSpace() uint16 {
-	return p.freeSpace()
-}

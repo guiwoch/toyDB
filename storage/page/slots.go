@@ -27,7 +27,7 @@ func (p *Page) writeSlot(cellOffset, cellSize, i uint16) {
 	binary.BigEndian.PutUint16(p[slotOff+slotLengthOff:], cellSize)
 	p.setSlotAlloc(end + slotSize)
 	p.setSlotCount(p.slotCount() + 1)
-	p.setFreeSpace(p.freeSpace() - slotSize)
+	p.setFreeSpace(p.FreeSpace() - slotSize)
 }
 
 // updateOffsetSlot updates the cell offset stored at slot i.
