@@ -157,19 +157,27 @@ func (p *Page) Get(key []byte) ([]byte, bool) {
 }
 
 // ValueByIndex returns the value at the given slot index.
+// It returns a copy of the key, so its safe to use across page mutations.
 func (p *Page) ValueByIndex(slotIndex uint16) []byte {
 	if slotIndex >= p.slotCount() {
 		panic(fmt.Sprintf("slot index %d out of bounds [0, %d)", slotIndex, p.slotCount()))
 	}
-	return p.cellValue(slotIndex)
+	b := p.cellValue(slotIndex)
+	value := make([]byte, len(b))
+	copy(value, b)
+	return value
 }
 
 // KeyByIndex returns the key at the given slot index.
+// It returns a copy of the key, so its safe to use across page mutations.
 func (p *Page) KeyByIndex(slotIndex uint16) []byte {
 	if slotIndex >= p.slotCount() {
 		panic(fmt.Sprintf("slot index %d out of bounds [0, %d)", slotIndex, p.slotCount()))
 	}
-	return p.cellKey(slotIndex)
+	b := p.cellKey(slotIndex)
+	key := make([]byte, len(b))
+	copy(key, b)
+	return key
 }
 
 // VerifyChecksum calculates the page checksum and compares it to the stored one.
