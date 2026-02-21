@@ -33,7 +33,7 @@ func recordGenerator(n uint32) []record {
 
 func TestInsertAndSearch(t *testing.T) {
 	tree := btree.New(page.KeyTypeInt)
-	records := recordGenerator(50000)
+	records := recordGenerator(10_000_000)
 	for i := range records {
 		tree.Insert(records[i].key[:], records[i].value[:])
 	}
