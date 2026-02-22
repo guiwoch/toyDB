@@ -11,24 +11,116 @@ import (
 )
 
 type Btree struct {
-	pager   *pager.Pager
-	root    *page.Page
+	pager *pager.Pager
+
+	rootID      uint32
+	firstLeafID uint32
+	lastLeafID  uint32
+
 	keyType uint8
 }
 
 func New(keyType uint8) *Btree {
 	pgr := pager.NewPager()
+	root := pgr.AllocatePage(page.TypeLeaf, keyType)
 	return &Btree{
-		pager:   pgr,
-		root:    pgr.AllocatePage(page.TypeLeaf, keyType),
-		keyType: keyType,
+		pager:       pgr,
+		rootID:      root.PageID(),
+		firstLeafID: root.PageID(),
+		lastLeafID:  root.PageID(),
+		keyType:     keyType,
 	}
 }
 
 // Search traverses the tree from root to leaf and returns the value associated
 // with the given key. Returns (nil, false) if the key is not found.
 func (b *Btree) Search(key []byte) ([]byte, bool) {
-	p := b.root
+	p := b.findLeaf(key)
+	return p.Get(key)
+}
+
+type Record struct{ Key, Value []byte }
+
+// AscendingRange returns the leaf values [from, to) keys in ascending order.
+// Nil is used as the lower and upper bounds
+func (b *Btree) AscendingRange(from, to []byte) []Record {
+	var records []Record
+
+	var p *page.Page
+	if from == nil { // use the first page
+		p = b.pager.GetPage(b.firstLeafID)
+	} else {
+		p = b.findLeaf(from)
+	}
+
+	i, _ := p.SearchKey(from)
+
+	var key []byte
+	for {
+		key = p.KeyByIndex(i)
+		if to != nil && bytes.Compare(key, to) >= 0 {
+			break
+		}
+		value := p.ValueByIndex(i)
+
+		records = append(records, Record{Key: key, Value: value})
+
+		if i == p.RecordCount()-1 { // no need to worry about to being nil, this covers it
+			if p.NextLeaf() == 0 {
+				break
+			}
+
+			p = b.pager.GetPage(p.NextLeaf())
+			i = 0
+		} else {
+			i++
+		}
+	}
+	return records
+}
+
+// DescendingRange returns the leaf values [from, to) keys in ascending order.
+// Nil is used as the lower and upper bounds
+func (b *Btree) DescendingRange(from, to []byte) []Record {
+	var records []Record
+	var p *page.Page
+
+	if from == nil { // use the last page
+		p = b.pager.GetPage(b.lastLeafID)
+		from = p.KeyByIndex(p.RecordCount() - 1)
+	} else {
+		p = b.findLeaf(from)
+	}
+
+	i, found := p.SearchKey(from)
+	if !found {
+		i--
+	}
+
+	for {
+		key := p.KeyByIndex(i)
+		if to != nil && bytes.Compare(key, to) <= 0 {
+			break
+		}
+		value := p.ValueByIndex(i)
+		records = append(records, Record{Key: key, Value: value})
+
+		if i == 0 {
+			if p.PrevLeaf() == 0 {
+				break
+			}
+
+			p = b.pager.GetPage(p.PrevLeaf())
+			i = p.RecordCount() - 1
+		} else {
+			i--
+		}
+	}
+	return records
+}
+
+func (b *Btree) findLeaf(key []byte) *page.Page {
+	p := b.pager.GetPage(b.rootID)
 	for p.PageType() == page.TypeInternal {
 		i, found := p.SearchKey(key)
 		if found {
@@ -44,12 +136,12 @@ func (b *Btree) Search(key []byte) ([]byte, bool) {
 		// Not found: i is already the correct child (insertion point).
 		if i == p.RecordCount() {
 			p = b.pager.GetPage(p.RightPointer())
-			continue
+		} else {
+			childID := binary.BigEndian.Uint32(p.ValueByIndex(i))
+			p = b.pager.GetPage(childID)
 		}
-		childID := binary.BigEndian.Uint32(p.ValueByIndex(i))
-		p = b.pager.GetPage(childID)
 	}
-	return p.Get(key)
+	return p
 }
 
 func (b *Btree) Insert(key, value []byte) error {
@@ -76,6 +168,8 @@ func (b *Btree) Insert(key, value []byte) error {
 					// update the leaf linked-list
 					if p.PrevLeaf() != 0 {
 						b.pager.GetPage(p.PrevLeaf()).SetNextLeaf(split.left.PageID())
+					} else {
+						b.firstLeafID = split.left.PageID()
 					}
 					split.left.SetPrevLeaf(p.PrevLeaf())
 					split.left.SetNextLeaf(split.right.PageID())
@@ -83,6 +177,8 @@ func (b *Btree) Insert(key, value []byte) error {
 					split.right.SetNextLeaf(p.NextLeaf())
 					if p.NextLeaf() != 0 {
 						b.pager.GetPage(p.NextLeaf()).SetPrevLeaf(split.right.PageID())
+					} else {
+						b.lastLeafID = split.right.PageID()
 					}
 
 					split.oldPageID = p.PageID()
@@ -206,7 +302,7 @@ func (b *Btree) Insert(key, value []byte) error {
 		panic("pageType is not internal nor leaf")
 	}
 
-	split, err := insert(b.root)
+	split, err := insert(b.pager.GetPage(b.rootID))
 	if errors.Is(err, page.ErrPageFull) {
 
 		newRoot := b.pager.AllocatePage(page.TypeInternal, b.keyType)
@@ -216,7 +312,7 @@ func (b *Btree) Insert(key, value []byte) error {
 		newRoot.InsertRecord(split.promotedKey, buf[:])
 		newRoot.SetRightPointer(split.right.PageID())
 
-		b.root = newRoot
+		b.rootID = newRoot.PageID()
 	}
 	return err
 }
