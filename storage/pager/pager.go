@@ -12,6 +12,7 @@ type Pager struct {
 func NewPager() *Pager {
 	p := Pager{
 		pages: make(map[uint32]*page.Page),
+		newID: 1, // zero is the null page, IDs start at one.
 	}
 	return &p
 }

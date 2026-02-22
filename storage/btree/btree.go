@@ -72,6 +72,19 @@ func (b *Btree) Insert(key, value []byte) error {
 					split.promotedKey = p.KeyByIndex(mid)
 					split.left = b.pager.AllocatePageFromRecords(page.TypeLeaf, b.keyType, p.ExtractRecords(0, mid))
 					split.right = b.pager.AllocatePageFromRecords(page.TypeLeaf, b.keyType, p.ExtractRecords(mid, p.RecordCount()))
+
+					// update the leaf linked-list
+					if p.PrevLeaf() != 0 {
+						b.pager.GetPage(p.PrevLeaf()).SetNextLeaf(split.left.PageID())
+					}
+					split.left.SetPrevLeaf(p.PrevLeaf())
+					split.left.SetNextLeaf(split.right.PageID())
+					split.right.SetPrevLeaf(split.left.PageID())
+					split.right.SetNextLeaf(p.NextLeaf())
+					if p.NextLeaf() != 0 {
+						b.pager.GetPage(p.NextLeaf()).SetPrevLeaf(split.right.PageID())
+					}
+
 					split.oldPageID = p.PageID()
 
 					compare := bytes.Compare(key, split.promotedKey)
