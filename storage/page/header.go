@@ -25,6 +25,8 @@ const (
 	hdrKeyTypeOff   = 13 // uint8  (int=1, string=2)
 	hdrChecksumOff  = 14 // uint32
 	hdrRightPointer = 18 // uint32
+	hdrNextLeaf     = 22 // uint32
+	hdrPrevLeaf     = 26 // uint32
 )
 
 func (p *Page) PageID() uint32 {
@@ -89,6 +91,22 @@ func (p *Page) RightPointer() uint32 {
 
 func (p *Page) SetRightPointer(n uint32) {
 	binary.BigEndian.PutUint32(p[hdrRightPointer:], n)
+}
+
+func (p *Page) NextLeaf() uint32 {
+	return binary.BigEndian.Uint32(p[hdrNextLeaf:])
+}
+
+func (p *Page) SetNextLeaf(n uint32) {
+	binary.BigEndian.PutUint32(p[hdrNextLeaf:], n)
+}
+
+func (p *Page) PrevLeaf() uint32 {
+	return binary.BigEndian.Uint32(p[hdrPrevLeaf:])
+}
+
+func (p *Page) SetPrevLeaf(n uint32) {
+	binary.BigEndian.PutUint32(p[hdrPrevLeaf:], n)
 }
 
 func (p *Page) calculateChecksum() uint32 {
