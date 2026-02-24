@@ -27,6 +27,7 @@ func newTestPage(t *testing.T, records records) *page.Page {
 }
 
 func TestRecordCount(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		records records
@@ -43,6 +44,7 @@ func TestRecordCount(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			p := newTestPage(t, tt.records)
 			got := p.RecordCount()
 			if got != tt.want {
@@ -53,6 +55,7 @@ func TestRecordCount(t *testing.T) {
 }
 
 func TestGet(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		records   records
@@ -110,6 +113,7 @@ func TestGet(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			p := newTestPage(t, tt.records)
 			gotValue, gotFound := p.Get(tt.key)
 			if !bytes.Equal(gotValue, tt.wantValue) {
@@ -123,6 +127,7 @@ func TestGet(t *testing.T) {
 }
 
 func TestDeleteRecord(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		records records
@@ -141,6 +146,7 @@ func TestDeleteRecord(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			p := newTestPage(t, tt.records)
 			ok := p.DeleteRecord(tt.key)
 			if !ok {
