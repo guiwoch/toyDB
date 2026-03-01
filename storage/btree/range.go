@@ -15,7 +15,7 @@ func (b *Btree) AscendingRange(from, to []byte) []Record {
 
 	var p *page.Page
 	if from == nil { // use the first page
-		p = b.pager.GetPage(b.firstLeafID)
+		p = b.pager.Get(b.firstLeafID)
 	} else {
 		p = b.findLeaf(from)
 	}
@@ -37,7 +37,7 @@ func (b *Btree) AscendingRange(from, to []byte) []Record {
 				break
 			}
 
-			p = b.pager.GetPage(p.NextLeaf())
+			p = b.pager.Get(p.NextLeaf())
 			i = 0
 		} else {
 			i++
@@ -53,7 +53,7 @@ func (b *Btree) DescendingRange(from, to []byte) []Record {
 	var p *page.Page
 
 	if from == nil { // use the last page
-		p = b.pager.GetPage(b.lastLeafID)
+		p = b.pager.Get(b.lastLeafID)
 		from = p.KeyByIndex(p.RecordCount() - 1)
 	} else {
 		p = b.findLeaf(from)
@@ -77,7 +77,7 @@ func (b *Btree) DescendingRange(from, to []byte) []Record {
 				break
 			}
 
-			p = b.pager.GetPage(p.PrevLeaf())
+			p = b.pager.Get(p.PrevLeaf())
 			i = p.RecordCount() - 1
 		} else {
 			i--

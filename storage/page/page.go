@@ -199,7 +199,6 @@ func (p *Page) RecordCount() uint16 {
 	return p.slotCount()
 }
 
-
 // SearchKey returns the position where the key exists or would be inserted to
 // maintain sorted order. The bool indicates whether the key was found.
 func (p *Page) SearchKey(key []byte) (uint16, bool) {
@@ -222,4 +221,3 @@ func (p *Page) SearchKey(key []byte) (uint16, bool) {
 	}
 	return left, false
 }
-
