@@ -20,7 +20,7 @@ type Btree struct {
 
 func New(keyType uint8) *Btree {
 	pgr := pager.NewPager()
-	root := pgr.AllocatePage(page.TypeLeaf, keyType)
+	root := pgr.Allocate(page.TypeLeaf, keyType)
 	return &Btree{
 		pager:       pgr,
 		rootID:      root.PageID(),
@@ -38,26 +38,27 @@ func (b *Btree) Search(key []byte) ([]byte, bool) {
 }
 
 func (b *Btree) findLeaf(key []byte) *page.Page {
-	p := b.pager.GetPage(b.rootID)
+	p := b.pager.Get(b.rootID)
 	for p.PageType() == page.TypeInternal {
+		var childID uint32
 		i, found := p.SearchKey(key)
 		if found {
 			// Equal keys go right, so follow the right child (i+1).
 			if i == p.RecordCount()-1 {
-				p = b.pager.GetPage(p.RightPointer())
-				continue
+				childID = p.RightPointer()
+			} else {
+				childID = binary.BigEndian.Uint32(p.ValueByIndex(i + 1))
 			}
-			childID := binary.BigEndian.Uint32(p.ValueByIndex(i + 1))
-			p = b.pager.GetPage(childID)
-			continue
-		}
-		// Not found: i is already the correct child (insertion point).
-		if i == p.RecordCount() {
-			p = b.pager.GetPage(p.RightPointer())
 		} else {
-			childID := binary.BigEndian.Uint32(p.ValueByIndex(i))
-			p = b.pager.GetPage(childID)
+			// Not found: i is already the correct child (insertion point).
+			if i == p.RecordCount() {
+				childID = p.RightPointer()
+			} else {
+				childID = binary.BigEndian.Uint32(p.ValueByIndex(i))
+			}
 		}
+		b.pager.Unpin(p.PageID())
+		p = b.pager.Get(childID)
 	}
 	return p
 }
