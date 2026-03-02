@@ -128,26 +128,6 @@ func (b *Btree) splitInternal(pendingSplit *splitResult, p *page.Page) *splitRes
 	return split
 }
 
-// findChild returns returns the page that needs to be followed to insert the record, given a key and a page.
-func (b *Btree) findChild(key []byte, p *page.Page) (nextPage *page.Page) {
-	i, found := p.SearchKey(key)
-	var idx uint16
-	if found { // if found, the index needs to be i+1
-		idx = i + 1
-	} else {
-		idx = i
-	}
-
-	var childID uint32
-	if idx == p.RecordCount() {
-		childID = p.RightPointer()
-	} else {
-		childID = binary.BigEndian.Uint32(p.ValueByIndex(idx))
-	}
-
-	return b.pager.Get(childID)
-}
-
 func (b *Btree) insertIntoLeaf(key, value []byte, p *page.Page) (*splitResult, error) {
 	err := p.InsertRecord(key, value)
 	if !errors.Is(err, page.ErrPageFull) {
