@@ -94,6 +94,23 @@ func (p *Page) ExtractRecords(from, to uint16) *Records {
 	}
 }
 
+func MergeRecords(left, right *Records) *Records {
+	// Adjust left's slot offsets to account for right's cells being appended
+	adjustment := uint16(len(right.Cells))
+	adjustedSlots := make([]byte, len(left.Slots))
+	copy(adjustedSlots, left.Slots)
+	for i := 0; i < len(adjustedSlots); i += slotSize {
+		off := binary.BigEndian.Uint16(adjustedSlots[i+slotOffsetOff:])
+		binary.BigEndian.PutUint16(adjustedSlots[i+slotOffsetOff:], off-adjustment)
+	}
+
+	return &Records{
+		Slots:        append(adjustedSlots, right.Slots...),
+		Cells:        append(left.Cells, right.Cells...),
+		RightPointer: right.RightPointer,
+	}
+}
+
 var (
 	ErrPageFull     = errors.New("insufficient space on page")
 	ErrDuplicateKey = errors.New("key already exists")
@@ -199,6 +216,14 @@ func (p *Page) RecordCount() uint16 {
 	return p.slotCount()
 }
 
+// RecordSizeByIndex returns the full on-page cost of the record at slot index i,
+// including both the slot and cell.
+func (p *Page) RecordSizeByIndex(i uint16) uint16 {
+	slotOff := pageHeaderSize + i*slotSize
+	cellSize := binary.BigEndian.Uint16(p[slotOff+slotLengthOff:])
+	return slotSize + cellSize
+}
+
 // SearchKey returns the position where the key exists or would be inserted to
 // maintain sorted order. The bool indicates whether the key was found.
 func (p *Page) SearchKey(key []byte) (uint16, bool) {
@@ -220,4 +245,14 @@ func (p *Page) SearchKey(key []byte) (uint16, bool) {
 		}
 	}
 	return left, false
+}
+
+// BytesUntilUnderflow returns the amount until underflow
+// if the number is negative, the page is underflowed.
+func (p *Page) BytesUntilUnderflow() int {
+	return int((pageSize-pageHeaderSize)/2) - int(p.FreeSpace())
+}
+
+func CanMerge(a, b *Page) bool {
+	return a.BytesUntilUnderflow()+b.BytesUntilUnderflow() <= 0
 }

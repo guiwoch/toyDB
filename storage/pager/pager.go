@@ -51,7 +51,7 @@ func (pager *Pager) AllocateFromRecords(pageType, keyType uint8, records *page.R
 	return newPage
 }
 
-// Free frees the specified ID
+// Free removes the page and recycles its ID for future allocations.
 func (pager *Pager) Free(id uint32) bool {
 	_, ok := pager.pages[id]
 	if !ok {

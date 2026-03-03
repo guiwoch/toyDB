@@ -54,9 +54,13 @@ func (b *Btree) findLeaf(key []byte) *page.Page {
 	return p
 }
 
-// findChildID returns the page ID of the child at the slot index
-// If the index equals the record count, the RightPointer is returned.
+// findChildID returns the page ID of the child at slot idx in parent.
+// If idx equals the record count, the RightPointer is returned.
+// If idx is out of bounds, 0 (the null page) is returned.
 func (b *Btree) findChildID(parent *page.Page, idx uint16) uint32 {
+	if idx > parent.RecordCount() {
+		return 0
+	}
 	if idx == parent.RecordCount() {
 		return parent.RightPointer()
 	}
