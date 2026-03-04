@@ -37,16 +37,19 @@ func (b *Btree) AscendingRange(from, to []byte) []Record {
 				break
 			}
 
-			p = b.pager.Get(p.NextLeaf())
+			nextPage := b.pager.Get(p.NextLeaf())
+			b.pager.Unpin(p.PageID())
+			p = nextPage
 			i = 0
 		} else {
 			i++
 		}
 	}
+	b.pager.Unpin(p.PageID())
 	return records
 }
 
-// DescendingRange returns the leaf values [from, to) keys in ascending order.
+// DescendingRange returns the leaf values [from, to) keys in descending order.
 // Nil is used as the lower and upper bounds
 func (b *Btree) DescendingRange(from, to []byte) []Record {
 	var records []Record
@@ -77,11 +80,14 @@ func (b *Btree) DescendingRange(from, to []byte) []Record {
 				break
 			}
 
-			p = b.pager.Get(p.PrevLeaf())
+			prevPage := b.pager.Get(p.PrevLeaf())
+			b.pager.Unpin(p.PageID())
+			p = prevPage
 			i = p.RecordCount() - 1
 		} else {
 			i--
 		}
 	}
+	b.pager.Unpin(p.PageID())
 	return records
 }

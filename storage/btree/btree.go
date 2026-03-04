@@ -34,7 +34,9 @@ func New(keyType uint8) *Btree {
 // with the given key. Returns (nil, false) if the key is not found.
 func (b *Btree) Search(key []byte) ([]byte, bool) {
 	p := b.findLeaf(key)
-	return p.Get(key)
+	value, found := p.Get(key)
+	b.pager.Unpin(p.PageID())
+	return value, found
 }
 
 func (b *Btree) findLeaf(key []byte) *page.Page {
