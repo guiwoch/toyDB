@@ -8,12 +8,14 @@ type Pager struct {
 	newID   uint32
 	freeIDs []uint32
 	pins    []uint8
+	keyType uint8
 }
 
-func NewPager() *Pager {
+func NewPager(keyType uint8) *Pager {
 	p := Pager{
-		pages: make(map[uint32]*page.Page),
-		newID: 1, // zero is the null page, IDs start at one.
+		pages:   make(map[uint32]*page.Page),
+		newID:   1, // zero is the null page, IDs start at one.
+		keyType: keyType,
 	}
 	return &p
 }
@@ -36,17 +38,16 @@ func (pager *Pager) allocateID() uint32 {
 	return id
 }
 
-func (pager *Pager) Allocate(pageType, keyType uint8) *page.Page {
+func (pager *Pager) Allocate(pageType uint8) *page.Page {
 	id := pager.allocateID()
-	newPage := page.NewPage(id, pageType, keyType)
+	newPage := page.NewPage(id, pageType, pager.keyType)
 	pager.pages[id] = newPage
 	return newPage
 }
 
-func (pager *Pager) AllocateFromRecords(pageType, keyType uint8, records *page.Records) *page.Page {
+func (pager *Pager) AllocateFromRecords(pageType uint8, records *page.Records) *page.Page {
 	id := pager.allocateID()
-	newPage := page.NewPageFromRecords(id, pageType, keyType, records)
-
+	newPage := page.NewPageFromRecords(id, pageType, pager.keyType, records)
 	pager.pages[id] = newPage
 	return newPage
 }

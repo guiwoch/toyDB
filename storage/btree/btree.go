@@ -19,8 +19,8 @@ type Btree struct {
 }
 
 func New(keyType uint8) *Btree {
-	pgr := pager.NewPager()
-	root := pgr.Allocate(page.TypeLeaf, keyType)
+	pgr := pager.NewPager(keyType)
+	root := pgr.Allocate(page.TypeLeaf)
 	return &Btree{
 		pager:       pgr,
 		rootID:      root.PageID(),
