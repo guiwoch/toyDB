@@ -22,21 +22,27 @@ func uniqueRecords(n uint32) []record {
 }
 
 func TestDeleteNotFound(t *testing.T) {
-	tree := btree.New(page.KeyTypeInt)
+	tree, err := btree.New(page.KeyTypeInt, t.TempDir()+"/test")
+	if err != nil {
+		t.Fatal(err)
+	}
 	records := uniqueRecords(100)
 	for _, r := range records {
 		tree.Insert(r.key[:], r.value[:])
 	}
 
 	var missing [4]byte
-	err := tree.Delete(missing[:])
+	err = tree.Delete(missing[:])
 	if !errors.Is(err, btree.ErrKeyNotFound) {
 		t.Errorf("expected ErrKeyNotFound, got %v", err)
 	}
 }
 
 func TestDeleteAndSearch(t *testing.T) {
-	tree := btree.New(page.KeyTypeInt)
+	tree, err := btree.New(page.KeyTypeInt, t.TempDir()+"/test")
+	if err != nil {
+		t.Fatal(err)
+	}
 	records := uniqueRecords(10_000_000)
 	for _, r := range records {
 		tree.Insert(r.key[:], r.value[:])
@@ -55,7 +61,10 @@ func TestDeleteAndSearch(t *testing.T) {
 }
 
 func TestDeleteAllAndReinsert(t *testing.T) {
-	tree := btree.New(page.KeyTypeInt)
+	tree, err := btree.New(page.KeyTypeInt, t.TempDir()+"/test")
+	if err != nil {
+		t.Fatal(err)
+	}
 	records := uniqueRecords(10_000_000)
 	for _, r := range records {
 		tree.Insert(r.key[:], r.value[:])

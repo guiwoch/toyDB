@@ -18,16 +18,34 @@ type Btree struct {
 	keyType uint8
 }
 
-func New(keyType uint8) *Btree {
-	pgr := pager.NewPager(keyType)
-	root := pgr.Allocate(page.TypeLeaf)
+func New(keyType uint8, filename string) (*Btree, error) {
+	pgr, meta, err := pager.New(keyType, filename)
+	if err != nil {
+		return nil, err
+	}
+	if meta.RootID == 0 {
+		// fresh database: allocate the initial root leaf
+		root := pgr.Allocate(page.TypeLeaf)
+		return &Btree{
+			pager:       pgr,
+			rootID:      root.PageID(),
+			firstLeafID: root.PageID(),
+			lastLeafID:  root.PageID(),
+			keyType:     keyType,
+		}, nil
+	}
+	// existing database: restore tree state from metadata
 	return &Btree{
 		pager:       pgr,
-		rootID:      root.PageID(),
-		firstLeafID: root.PageID(),
-		lastLeafID:  root.PageID(),
+		rootID:      meta.RootID,
+		firstLeafID: meta.FirstLeafID,
+		lastLeafID:  meta.LastLeafID,
 		keyType:     keyType,
-	}
+	}, nil
+}
+
+func (b *Btree) Close() error {
+	return b.pager.Close(b.rootID, b.firstLeafID, b.lastLeafID)
 }
 
 // Search traverses the tree from root to leaf and returns the value associated

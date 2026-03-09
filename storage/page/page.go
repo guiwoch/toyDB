@@ -9,19 +9,19 @@ import (
 )
 
 const (
-	pageSize       = 8192 // 8KB
-	pageHeaderSize = 64   // Includes reserved space for future expansions
+	PageSize       = 8192 // 8KB
+	PageHeaderSize = 64   // Includes reserved space for future expansions
 )
 
-type Page [pageSize]byte
+type Page [PageSize]byte
 
 func NewPage(id uint32, pageType, keyType uint8) *Page {
 	var p Page
 	p.setPageID(id)
 	p.setSlotCount(0)
-	p.setSlotAlloc(pageHeaderSize)
-	p.setCellAlloc(pageSize)
-	p.setFreeSpace(pageSize - pageHeaderSize)
+	p.setSlotAlloc(PageHeaderSize)
+	p.setCellAlloc(PageSize)
+	p.setFreeSpace(PageSize - PageHeaderSize)
 	p.setPageType(pageType)
 	p.setKeyType(keyType)
 	return &p
@@ -41,18 +41,18 @@ func NewPageFromRecords(id uint32, pageType, keyType uint8, records *Records) *P
 
 	slotsSize := uint16(len(records.Slots))
 	slotCount := slotsSize / slotSize
-	p.setSlotAlloc(pageHeaderSize + slotsSize)
+	p.setSlotAlloc(PageHeaderSize + slotsSize)
 	p.setSlotCount(slotCount)
 
 	cellsSize := uint16(len(records.Cells))
-	p.setCellAlloc(pageSize - cellsSize)
-	p.setFreeSpace(pageSize - (pageHeaderSize + cellsSize + slotsSize))
+	p.setCellAlloc(PageSize - cellsSize)
+	p.setFreeSpace(PageSize - (PageHeaderSize + cellsSize + slotsSize))
 
 	p.setPageType(pageType)
 	p.setKeyType(keyType)
 
-	copy(p[pageHeaderSize:], records.Slots)
-	copy(p[pageSize-cellsSize:], records.Cells)
+	copy(p[PageHeaderSize:], records.Slots)
+	copy(p[PageSize-cellsSize:], records.Cells)
 	p.SetRightPointer(records.RightPointer)
 	return &p
 }
@@ -79,7 +79,7 @@ func (p *Page) ExtractRecords(from, to uint16) *Records {
 	var slots []byte
 	bytesBeforeCell := uint16(0)
 	for _, size := range cellSizes {
-		cellOffset := pageSize - totalCellsSize + bytesBeforeCell
+		cellOffset := PageSize - totalCellsSize + bytesBeforeCell
 		slot := make([]byte, slotSize)
 		binary.BigEndian.PutUint16(slot[slotOffsetOff:], cellOffset)
 		binary.BigEndian.PutUint16(slot[slotLengthOff:], size)
@@ -149,7 +149,7 @@ func (p *Page) DeleteRecord(key []byte) bool {
 		return false
 	}
 
-	slotOff := pageHeaderSize + i*slotSize
+	slotOff := PageHeaderSize + i*slotSize
 
 	isLastSlot := i == p.slotCount()-1
 	if !isLastSlot {
@@ -219,7 +219,7 @@ func (p *Page) RecordCount() uint16 {
 // RecordSizeByIndex returns the full on-page cost of the record at slot index i,
 // including both the slot and cell.
 func (p *Page) RecordSizeByIndex(i uint16) uint16 {
-	slotOff := pageHeaderSize + i*slotSize
+	slotOff := PageHeaderSize + i*slotSize
 	cellSize := binary.BigEndian.Uint16(p[slotOff+slotLengthOff:])
 	return slotSize + cellSize
 }
@@ -250,7 +250,7 @@ func (p *Page) SearchKey(key []byte) (uint16, bool) {
 // BytesUntilUnderflow returns the amount until underflow
 // if the number is negative, the page is underflowed.
 func (p *Page) BytesUntilUnderflow() int {
-	return int((pageSize-pageHeaderSize)/2) - int(p.FreeSpace())
+	return int((PageSize-PageHeaderSize)/2) - int(p.FreeSpace())
 }
 
 func CanMerge(a, b *Page) bool {

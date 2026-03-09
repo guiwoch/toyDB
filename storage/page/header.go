@@ -27,6 +27,7 @@ const (
 	hdrRightPointer = 18 // uint32
 	hdrNextLeaf     = 22 // uint32
 	hdrPrevLeaf     = 26 // uint32
+	HdrIsFree       = 30 // uint8
 )
 
 func (p *Page) PageID() uint32 {
@@ -107,6 +108,14 @@ func (p *Page) PrevLeaf() uint32 {
 
 func (p *Page) SetPrevLeaf(n uint32) {
 	binary.BigEndian.PutUint32(p[hdrPrevLeaf:], n)
+}
+
+// func (p *Page) IsFree() bool {
+// 	return p[HdrIsFree] == 1
+// }
+
+func (p *Page) SetFree() {
+	p[HdrIsFree] = 1
 }
 
 func (p *Page) calculateChecksum() uint32 {

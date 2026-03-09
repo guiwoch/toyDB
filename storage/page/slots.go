@@ -16,7 +16,7 @@ func (p *Page) writeSlot(cellOffset, cellSize, i uint16) {
 	if i > p.slotCount() {
 		panic(fmt.Sprintf("slot index %d out of bounds [0, %d]", i, p.slotCount()))
 	}
-	slotOff := pageHeaderSize + i*slotSize
+	slotOff := PageHeaderSize + i*slotSize
 	end := p.slotAlloc()
 
 	if slotOff < end {
@@ -32,12 +32,12 @@ func (p *Page) writeSlot(cellOffset, cellSize, i uint16) {
 
 // updateOffsetSlot updates the cell offset stored at slot i.
 func (p *Page) updateOffsetSlot(i, offset uint16) {
-	slotOffset := pageHeaderSize + i*slotSize
+	slotOffset := PageHeaderSize + i*slotSize
 	binary.BigEndian.PutUint16(p[slotOffset:], offset)
 }
 
 // getCellOffset returns the cell offset stored in the given slot.
 func (p *Page) getCellOffset(slotIndex uint16) uint16 {
-	slotOff := pageHeaderSize + slotIndex*slotSize
+	slotOff := PageHeaderSize + slotIndex*slotSize
 	return binary.BigEndian.Uint16(p[slotOff+slotOffsetOff:])
 }

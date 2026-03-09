@@ -32,7 +32,10 @@ func recordGenerator(n uint32) []record {
 }
 
 func TestInsertAndSearch(t *testing.T) {
-	tree := btree.New(page.KeyTypeInt)
+	tree, err := btree.New(page.KeyTypeInt, t.TempDir()+"/test")
+	if err != nil {
+		t.Fatal(err)
+	}
 	records := recordGenerator(10_000_000)
 	for i := range records {
 		tree.Insert(records[i].key[:], records[i].value[:])

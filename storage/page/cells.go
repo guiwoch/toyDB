@@ -37,7 +37,7 @@ func (p *Page) getCell(slotIndex uint16) []byte {
 
 // getCellSize returns the size of the cell at the given slot index.
 func (p *Page) getCellSize(slotIndex uint16) uint16 {
-	slotOff := pageHeaderSize + slotIndex*slotSize
+	slotOff := PageHeaderSize + slotIndex*slotSize
 	return binary.BigEndian.Uint16(p[slotOff+slotLengthOff:])
 }
 
@@ -53,7 +53,7 @@ func (p *Page) compactCells() {
 		sizes = append(sizes, uint16(len(cell)))
 	}
 
-	startOffset := pageSize - len(cells)
+	startOffset := PageSize - len(cells)
 	offset := uint16(startOffset)
 	for i := range n {
 		p.updateOffsetSlot(i, offset)

@@ -59,6 +59,7 @@ func (b *Btree) insertIntoInternal(key, value []byte, p *page.Page) (*splitResul
 
 // updateFromSplit updates the page if a split happened at one of its childs
 func (b *Btree) updateFromSplit(splitRes *splitResult, p *page.Page) *splitResult {
+	b.pager.MarkDirty(p.PageID())
 	// find where the old page is located
 	for i := range p.RecordCount() {
 		if id := binary.BigEndian.Uint32(p.ValueByIndex(i)); id == splitRes.oldPageID {
@@ -131,6 +132,9 @@ func (b *Btree) splitInternal(pendingSplit *splitResult, p *page.Page) *splitRes
 func (b *Btree) insertIntoLeaf(key, value []byte, p *page.Page) (*splitResult, error) {
 	err := p.InsertRecord(key, value)
 	if !errors.Is(err, page.ErrPageFull) {
+		if err == nil {
+			b.pager.MarkDirty(p.PageID())
+		}
 		return nil, err
 	}
 
@@ -160,6 +164,7 @@ func (b *Btree) splitLeaf(key, value []byte, p *page.Page) *splitResult {
 	if p.PrevLeaf() != 0 {
 		prev := b.pager.Get(p.PrevLeaf())
 		prev.SetNextLeaf(split.left.PageID())
+		b.pager.MarkDirty(prev.PageID())
 		b.pager.Unpin(prev.PageID())
 	} else {
 		b.firstLeafID = split.left.PageID()
@@ -167,6 +172,7 @@ func (b *Btree) splitLeaf(key, value []byte, p *page.Page) *splitResult {
 	if p.NextLeaf() != 0 {
 		next := b.pager.Get(p.NextLeaf())
 		next.SetPrevLeaf(split.right.PageID())
+		b.pager.MarkDirty(next.PageID())
 		b.pager.Unpin(next.PageID())
 	} else {
 		b.lastLeafID = split.right.PageID()

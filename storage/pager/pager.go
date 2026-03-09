@@ -1,23 +1,54 @@
 // Package pager manages page allocation and retrieval
 package pager
 
-import "github.com/guiwoch/toyDB/storage/page"
+import (
+	"os"
+
+	"github.com/guiwoch/toyDB/storage/page"
+)
 
 type Pager struct {
-	pages   map[uint32]*page.Page
-	newID   uint32
 	freeIDs []uint32
 	pins    []uint8
+	pages   map[uint32]*page.Page
+	dirty   map[uint32]struct{}
+	file    *os.File
+	newID   uint32
 	keyType uint8
 }
 
-func NewPager(keyType uint8) *Pager {
-	p := Pager{
+func New(keyType uint8, filename string) (*Pager, Metadata, error) {
+	file, created, err := openFile(filename)
+	if err != nil {
+		return nil, Metadata{}, err
+	}
+	if created {
+		p := &Pager{
+			pages:   make(map[uint32]*page.Page),
+			dirty:   make(map[uint32]struct{}),
+			file:    file,
+			newID:   1, // zero is the null page, IDs start at one.
+			keyType: keyType,
+		}
+		return p, Metadata{}, nil
+	}
+	meta, err := readMeta(file)
+	if err != nil {
+		return nil, Metadata{}, err
+	}
+	freeList, err := buildFreeList(file, meta)
+	if err != nil {
+		return nil, Metadata{}, err
+	}
+	p := &Pager{
+		freeIDs: freeList,
 		pages:   make(map[uint32]*page.Page),
-		newID:   1, // zero is the null page, IDs start at one.
+		dirty:   make(map[uint32]struct{}),
+		file:    file,
+		newID:   meta.NewID,
 		keyType: keyType,
 	}
-	return &p
+	return p, meta, nil
 }
 
 // allocateID returns the next available page ID, reusing freed IDs when possible.
@@ -42,6 +73,7 @@ func (pager *Pager) Allocate(pageType uint8) *page.Page {
 	id := pager.allocateID()
 	newPage := page.NewPage(id, pageType, pager.keyType)
 	pager.pages[id] = newPage
+	pager.dirty[id] = struct{}{}
 	return newPage
 }
 
@@ -49,22 +81,35 @@ func (pager *Pager) AllocateFromRecords(pageType uint8, records *page.Records) *
 	id := pager.allocateID()
 	newPage := page.NewPageFromRecords(id, pageType, pager.keyType, records)
 	pager.pages[id] = newPage
+	pager.dirty[id] = struct{}{}
 	return newPage
 }
 
-// Free removes the page and recycles its ID for future allocations.
+// Free marks the page as free and recycles its ID for future allocations.
+// The page stays in memory and dirty so its isFree flag gets written to disk on flush.
 func (pager *Pager) Free(id uint32) bool {
-	_, ok := pager.pages[id]
+	p, ok := pager.pages[id]
 	if !ok {
 		return false
 	}
-	delete(pager.pages, id)
+	p.SetFree()
+	pager.dirty[id] = struct{}{}
 	pager.freeIDs = append(pager.freeIDs, id)
 	pager.pins[id] = 0
 	return true
 }
 
 func (pager *Pager) Get(id uint32) *page.Page {
+	if _, ok := pager.pages[id]; !ok {
+		p, err := pager.readPage(id)
+		if err != nil {
+			panic(err)
+		}
+		pager.pages[id] = p
+	}
+	for uint32(len(pager.pins)) <= id {
+		pager.pins = append(pager.pins, 0)
+	}
 	pager.pins[id]++
 	return pager.pages[id]
 }
@@ -73,4 +118,8 @@ func (pager *Pager) Unpin(id uint32) {
 	if pager.pins[id] > 0 {
 		pager.pins[id]--
 	}
+}
+
+func (pager *Pager) MarkDirty(id uint32) {
+	pager.dirty[id] = struct{}{}
 }

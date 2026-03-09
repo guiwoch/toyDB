@@ -107,6 +107,10 @@ func (b *Btree) stealFromLeft(parent, child, left *page.Page, childIdx uint16) {
 	stolenValue := left.ValueByIndex(left.RecordCount() - 1)
 	separator := parent.KeyByIndex(childIdx - 1)
 
+	b.pager.MarkDirty(left.PageID())
+	b.pager.MarkDirty(child.PageID())
+	b.pager.MarkDirty(parent.PageID())
+
 	// left sibling's last record is removed, left sibling's RightPointer becomes that record's value
 	left.DeleteRecord(stolenKey)
 
@@ -144,6 +148,11 @@ func (b *Btree) stealFromRight(parent, child, right *page.Page, childIdx uint16)
 	stolenKey := right.KeyByIndex(0)
 	stolenValue := right.ValueByIndex(0)
 	separator := parent.KeyByIndex(childIdx)
+
+	b.pager.MarkDirty(right.PageID())
+	b.pager.MarkDirty(child.PageID())
+	b.pager.MarkDirty(parent.PageID())
+
 	right.DeleteRecord(stolenKey)
 
 	if child.PageType() == page.TypeLeaf {
@@ -197,6 +206,9 @@ func (b *Btree) merge(parent, child *page.Page, childIdx uint16) (bool, error) {
 }
 
 func (b *Btree) mergeWithLeft(parent, child, left *page.Page, childIdx uint16) (bool, error) {
+	b.pager.MarkDirty(left.PageID())
+	b.pager.MarkDirty(parent.PageID())
+
 	leftRightPointer := left.RightPointer()
 	parentSepKey := parent.KeyByIndex(childIdx - 1)
 
@@ -238,6 +250,9 @@ func (b *Btree) mergeWithLeft(parent, child, left *page.Page, childIdx uint16) (
 }
 
 func (b *Btree) mergeWithRight(parent, child, right *page.Page, childIdx uint16) (bool, error) {
+	b.pager.MarkDirty(right.PageID())
+	b.pager.MarkDirty(parent.PageID())
+
 	childRightPointer := child.RightPointer()
 	sepKey := parent.KeyByIndex(childIdx)
 
@@ -272,6 +287,7 @@ func (b *Btree) unlinkLeaf(p *page.Page) {
 	if p.PrevLeaf() != 0 {
 		prev := b.pager.Get(p.PrevLeaf())
 		prev.SetNextLeaf(p.NextLeaf())
+		b.pager.MarkDirty(prev.PageID())
 		b.pager.Unpin(prev.PageID())
 	} else {
 		b.firstLeafID = p.NextLeaf()
@@ -280,6 +296,7 @@ func (b *Btree) unlinkLeaf(p *page.Page) {
 	if p.NextLeaf() != 0 {
 		next := b.pager.Get(p.NextLeaf())
 		next.SetPrevLeaf(p.PrevLeaf())
+		b.pager.MarkDirty(next.PageID())
 		b.pager.Unpin(next.PageID())
 	} else {
 		b.lastLeafID = p.PrevLeaf()
@@ -290,5 +307,6 @@ func (b *Btree) deleteOnLeaf(key []byte, p *page.Page) (bool, error) {
 	if !p.DeleteRecord(key) {
 		return false, ErrKeyNotFound
 	}
+	b.pager.MarkDirty(p.PageID())
 	return p.BytesUntilUnderflow() < 0, nil
 }
