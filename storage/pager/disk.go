@@ -84,11 +84,16 @@ func buildFreeList(file *os.File, meta Metadata) ([]uint32, error) {
 	return freeIDs, nil
 }
 
+var ErrChecksumMismatch = errors.New("page checksum mismatch")
+
 func (pager *Pager) readPage(id uint32) (*page.Page, error) {
 	var p page.Page
 	_, err := pager.file.ReadAt(p[:], int64(id)*int64(page.PageSize))
 	if err != nil {
 		return nil, err
+	}
+	if !p.VerifyChecksum() {
+		return nil, fmt.Errorf("%w: page id %v", ErrChecksumMismatch, id)
 	}
 	return &p, nil
 }
@@ -102,12 +107,14 @@ func (pager *Pager) flush() error {
 	slices.Sort(pageIDs)
 
 	for _, id := range pageIDs {
-		_, err := pager.file.WriteAt(pager.pages[id][:], int64(id)*int64(page.PageSize))
+		p := pager.pages[id]
+		p.SetChecksum()
+		_, err := pager.file.WriteAt(p[:], int64(id)*int64(page.PageSize))
 		if err != nil {
 			return fmt.Errorf("page flush error: page id %v - %w", id, err)
 		}
 	}
-	return nil
+	return pager.file.Sync()
 }
 
 func (pager *Pager) Close(rootID, firstLeafID, lastLeafID uint32) error {
