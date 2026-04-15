@@ -14,41 +14,51 @@ type Pager struct {
 	dirty   map[uint32]struct{}
 	file    *os.File
 	newID   uint32
-	keyType uint8
 }
 
-func New(keyType uint8, filename string) (*Pager, Metadata, error) {
+// Open opens (or creates) a pager-backed file. wasFresh reports whether the
+// file was created by this call. Page 0 is reserved for the DB header and is
+// not managed by the buffer pool.
+func Open(filename string) (*Pager, bool, error) {
 	file, created, err := openFile(filename)
 	if err != nil {
-		return nil, Metadata{}, err
+		return nil, false, err
 	}
 	if created {
-		p := &Pager{
-			pages:   make(map[uint32]*page.Page),
-			dirty:   make(map[uint32]struct{}),
-			file:    file,
-			newID:   1, // zero is the null page, IDs start at one.
-			keyType: keyType,
-		}
-		return p, Metadata{}, nil
+		return &Pager{
+			pages: make(map[uint32]*page.Page),
+			dirty: make(map[uint32]struct{}),
+			file:  file,
+			newID: 1,
+		}, true, nil
 	}
-	meta, err := readMeta(file)
+	stat, err := file.Stat()
 	if err != nil {
-		return nil, Metadata{}, err
+		file.Close()
+		return nil, false, err
 	}
-	freeList, err := buildFreeList(file, meta)
+	newID := uint32(stat.Size() / int64(page.PageSize))
+	if newID == 0 {
+		newID = 1
+	}
+	freeList, err := buildFreeList(file, newID)
 	if err != nil {
-		return nil, Metadata{}, err
+		file.Close()
+		return nil, false, err
 	}
-	p := &Pager{
+	return &Pager{
 		freeIDs: freeList,
 		pages:   make(map[uint32]*page.Page),
 		dirty:   make(map[uint32]struct{}),
 		file:    file,
-		newID:   meta.NewID,
-		keyType: keyType,
-	}
-	return p, meta, nil
+		newID:   newID,
+	}, false, nil
+}
+
+// NewID returns the next page ID that would be allocated from fresh space
+// (excluding the free list). DB persists this in page 0 on close.
+func (pager *Pager) NewID() uint32 {
+	return pager.newID
 }
 
 // allocateID returns the next available page ID, reusing freed IDs when possible.
@@ -69,17 +79,17 @@ func (pager *Pager) allocateID() uint32 {
 	return id
 }
 
-func (pager *Pager) Allocate(pageType uint8) *page.Page {
+func (pager *Pager) Allocate(pageType, keyType uint8) *page.Page {
 	id := pager.allocateID()
-	newPage := page.NewPage(id, pageType, pager.keyType)
+	newPage := page.NewPage(id, pageType, keyType)
 	pager.pages[id] = newPage
 	pager.dirty[id] = struct{}{}
 	return newPage
 }
 
-func (pager *Pager) AllocateFromRecords(pageType uint8, records *page.Records) *page.Page {
+func (pager *Pager) AllocateFromRecords(pageType, keyType uint8, records *page.Records) *page.Page {
 	id := pager.allocateID()
-	newPage := page.NewPageFromRecords(id, pageType, pager.keyType, records)
+	newPage := page.NewPageFromRecords(id, pageType, keyType, records)
 	pager.pages[id] = newPage
 	pager.dirty[id] = struct{}{}
 	return newPage

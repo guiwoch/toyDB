@@ -5,9 +5,6 @@ import (
 	"encoding/binary"
 	"math/rand"
 	"testing"
-
-	"github.com/guiwoch/toyDB/storage/btree"
-	"github.com/guiwoch/toyDB/storage/page"
 )
 
 type record struct {
@@ -32,10 +29,7 @@ func recordGenerator(n uint32) []record {
 }
 
 func TestInsertAndSearch(t *testing.T) {
-	tree, err := btree.New(page.KeyTypeInt, t.TempDir()+"/test")
-	if err != nil {
-		t.Fatal(err)
-	}
+	tree := newTestTree(t)
 	records := recordGenerator(10_000_000)
 	for i := range records {
 		tree.Insert(records[i].key[:], records[i].value[:])

@@ -11,20 +11,23 @@ import (
 func TestChecksumDetectsCorruption(t *testing.T) {
 	path := t.TempDir() + "/test"
 
-	p, _, err := New(page.KeyTypeInt, path)
+	p, _, err := Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	pg := p.Allocate(page.TypeLeaf)
+	pg := p.Allocate(page.TypeLeaf, page.KeyTypeInt)
 	id := pg.PageID()
 	if err := pg.InsertRecord([]byte{0, 0, 0, 1}, []byte("hello")); err != nil {
 		t.Fatal(err)
 	}
-	if err := p.Close(id, id, id); err != nil {
+	if err := p.Flush(); err != nil {
+		t.Fatal(err)
+	}
+	if err := p.Close(); err != nil {
 		t.Fatal(err)
 	}
 
-	// Flip a byte inside page 1's payload (past the 64-byte header).
+	// Flip a byte inside the page's payload (past the 64-byte header).
 	f, err := os.OpenFile(path, os.O_RDWR, 0o644)
 	if err != nil {
 		t.Fatal(err)
@@ -43,7 +46,7 @@ func TestChecksumDetectsCorruption(t *testing.T) {
 	}
 
 	// Reopen and read the corrupted page.
-	p2, _, err := New(page.KeyTypeInt, path)
+	p2, _, err := Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}

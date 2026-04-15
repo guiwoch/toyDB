@@ -13,10 +13,7 @@ import (
 func TestAscendingRangeFullScan(t *testing.T) {
 	t.Parallel()
 	const recordCount = 1_000_000
-	tree, err := btree.New(page.KeyTypeInt, t.TempDir()+"/test")
-	if err != nil {
-		t.Fatal(err)
-	}
+	tree := newTestTree(t)
 	records := recordGenerator(recordCount)
 
 	var collisionCount int
@@ -42,10 +39,7 @@ func TestAscendingRangeFullScan(t *testing.T) {
 func TestDescendingRangeFullScan(t *testing.T) {
 	t.Parallel()
 	const recordCount = 1_000_000
-	tree, err := btree.New(page.KeyTypeInt, t.TempDir()+"/test")
-	if err != nil {
-		t.Fatal(err)
-	}
+	tree := newTestTree(t)
 	records := recordGenerator(recordCount)
 
 	var collisionCount int
@@ -89,10 +83,7 @@ func assertRangeEqual(t *testing.T, got, want []btree.Record) {
 
 func newPartialScanTree(t *testing.T) *btree.Btree {
 	t.Helper()
-	tree, err := btree.New(page.KeyTypeInt, t.TempDir()+"/test")
-	if err != nil {
-		t.Fatal(err)
-	}
+	tree := newTestTree(t)
 	for i := range partialScanRecords {
 		tree.Insert(partialScanRecords[i].Key, partialScanRecords[i].Value)
 	}

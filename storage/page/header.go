@@ -78,10 +78,6 @@ func (p *Page) setPageType(n uint8) {
 	p[hdrPageTypeOff] = n
 }
 
-func (p *Page) keyType() uint8 {
-	return p[hdrKeyTypeOff]
-}
-
 func (p *Page) setKeyType(t uint8) {
 	p[hdrKeyTypeOff] = t
 }
@@ -109,10 +105,6 @@ func (p *Page) PrevLeaf() uint32 {
 func (p *Page) SetPrevLeaf(n uint32) {
 	binary.BigEndian.PutUint32(p[hdrPrevLeaf:], n)
 }
-
-// func (p *Page) IsFree() bool {
-// 	return p[HdrIsFree] == 1
-// }
 
 func (p *Page) SetFree() {
 	p[HdrIsFree] = 1

@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/guiwoch/toyDB/storage/btree"
+	"github.com/guiwoch/toyDB/storage/db"
 	"github.com/guiwoch/toyDB/storage/page"
 )
 
@@ -13,22 +13,31 @@ func TestPersistence(t *testing.T) {
 	records := recordGenerator(1000)
 
 	// Phase 1: write and close
-	tree, err := btree.New(page.KeyTypeInt, path)
+	d, err := db.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tree, err := d.CreateTable("t", page.KeyTypeInt)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, r := range records {
 		tree.Insert(r.key[:], r.value[:])
 	}
-	if err := tree.Close(); err != nil {
+	if err := d.Close(); err != nil {
 		t.Fatal(err)
 	}
+
 	// Phase 2: reopen and verify
-	tree, err = btree.New(page.KeyTypeInt, path)
+	d, err = db.Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tree.Close()
+	defer d.Close()
+	tree, err = d.OpenTable("t")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for _, r := range records {
 		value, found := tree.Search(r.key[:])

@@ -1,7 +1,6 @@
 package pager
 
 import (
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"os"
@@ -21,58 +20,12 @@ func openFile(filename string) (file *os.File, created bool, err error) {
 	return file, true, err
 }
 
-type Metadata struct {
-	NewID       uint32
-	RootID      uint32
-	FirstLeafID uint32
-	LastLeafID  uint32
-	PageCount   uint32
-}
-
-const (
-	metaNewID     = 0  // uint32
-	metaRootID    = 4  // uint32
-	metaFirstLeaf = 8  // uint32
-	metaLastLeaf  = 12 // uint32
-	metaPageCount = 16 // uint32
-	metaSize      = 20
-)
-
-// reads the contents of the zero-page
-func readMeta(file *os.File) (Metadata, error) {
-	metadataBytes := make([]byte, metaSize)
-	_, err := file.ReadAt(metadataBytes, 0)
-	if err != nil {
-		return Metadata{}, err
-	}
-
-	return Metadata{
-		NewID:       binary.BigEndian.Uint32(metadataBytes[metaNewID:]),
-		RootID:      binary.BigEndian.Uint32(metadataBytes[metaRootID:]),
-		FirstLeafID: binary.BigEndian.Uint32(metadataBytes[metaFirstLeaf:]),
-		LastLeafID:  binary.BigEndian.Uint32(metadataBytes[metaLastLeaf:]),
-		PageCount:   binary.BigEndian.Uint32(metadataBytes[metaPageCount:]),
-	}, nil
-}
-
-// writes to the zero-page
-func writeMeta(file *os.File, meta Metadata) error {
-	metadata := make([]byte, metaSize)
-	binary.BigEndian.PutUint32(metadata[metaNewID:], meta.NewID)
-	binary.BigEndian.PutUint32(metadata[metaRootID:], meta.RootID)
-	binary.BigEndian.PutUint32(metadata[metaFirstLeaf:], meta.FirstLeafID)
-	binary.BigEndian.PutUint32(metadata[metaLastLeaf:], meta.LastLeafID)
-	binary.BigEndian.PutUint32(metadata[metaPageCount:], meta.PageCount)
-
-	_, err := file.WriteAt(metadata, 0)
-	return err
-}
-
-// buildFreeList reads every page on disk and returns a freeList slice
-func buildFreeList(file *os.File, meta Metadata) ([]uint32, error) {
-	freeIDs := make([]uint32, 0, meta.PageCount)
+// buildFreeList reads every page on disk and returns a freeList slice.
+// pageCount is the total number of pages, including page 0.
+func buildFreeList(file *os.File, pageCount uint32) ([]uint32, error) {
+	freeIDs := make([]uint32, 0)
 	isFreeByte := make([]byte, 1)
-	for i := uint32(1); i < meta.PageCount; i++ {
+	for i := uint32(1); i < pageCount; i++ {
 		_, err := file.ReadAt(isFreeByte, int64(page.PageSize*i+page.HdrIsFree))
 		if err != nil {
 			return nil, err
@@ -98,7 +51,8 @@ func (pager *Pager) readPage(id uint32) (*page.Page, error) {
 	return &p, nil
 }
 
-func (pager *Pager) flush() error {
+// Flush writes all dirty pages to disk and fsyncs. Does not reset the dirty set.
+func (pager *Pager) Flush() error {
 	// sort the dirty pages improves the disk write
 	pageIDs := make([]uint32, 0, len(pager.dirty))
 	for k := range pager.dirty {
@@ -117,19 +71,24 @@ func (pager *Pager) flush() error {
 	return pager.file.Sync()
 }
 
-func (pager *Pager) Close(rootID, firstLeafID, lastLeafID uint32) error {
-	meta := Metadata{
-		NewID:       pager.newID,
-		RootID:      rootID,
-		FirstLeafID: firstLeafID,
-		LastLeafID:  lastLeafID,
-		PageCount:   pager.newID,
-	}
-	if err := writeMeta(pager.file, meta); err != nil {
+// ReadPage0 reads the raw bytes of page 0 into buf. Page 0 is not managed by
+// the buffer pool; it stores the DB header.
+func (pager *Pager) ReadPage0(buf []byte) error {
+	_, err := pager.file.ReadAt(buf, 0)
+	return err
+}
+
+// WritePage0 writes buf to page 0 and fsyncs. Callers must size buf appropriately.
+func (pager *Pager) WritePage0(buf []byte) error {
+	_, err := pager.file.WriteAt(buf, 0)
+	if err != nil {
 		return err
 	}
-	if err := pager.flush(); err != nil {
-		return err
-	}
+	return pager.file.Sync()
+}
+
+// Close closes the underlying file. Callers must Flush and WritePage0 before
+// calling Close to guarantee durability.
+func (pager *Pager) Close() error {
 	return pager.file.Close()
 }

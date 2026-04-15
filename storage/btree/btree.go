@@ -18,34 +18,47 @@ type Btree struct {
 	keyType uint8
 }
 
-func New(keyType uint8, filename string) (*Btree, error) {
-	pgr, meta, err := pager.New(keyType, filename)
-	if err != nil {
-		return nil, err
-	}
-	if meta.RootID == 0 {
-		// fresh database: allocate the initial root leaf
-		root := pgr.Allocate(page.TypeLeaf)
-		return &Btree{
-			pager:       pgr,
-			rootID:      root.PageID(),
-			firstLeafID: root.PageID(),
-			lastLeafID:  root.PageID(),
-			keyType:     keyType,
-		}, nil
-	}
-	// existing database: restore tree state from metadata
-	return &Btree{
-		pager:       pgr,
-		rootID:      meta.RootID,
-		firstLeafID: meta.FirstLeafID,
-		lastLeafID:  meta.LastLeafID,
-		keyType:     keyType,
-	}, nil
+// Open returns a Btree rooted at the given page. It descends the tree once to
+// cache the leftmost and rightmost leaf IDs; these are maintained by insert
+// and delete afterwards.
+func Open(p *pager.Pager, rootID uint32, keyType uint8) *Btree {
+	b := &Btree{pager: p, rootID: rootID, keyType: keyType}
+	b.firstLeafID = b.findLeftmostLeaf()
+	b.lastLeafID = b.findRightmostLeaf()
+	return b
 }
 
-func (b *Btree) Close() error {
-	return b.pager.Close(b.rootID, b.firstLeafID, b.lastLeafID)
+func (b *Btree) RootID() uint32 { return b.rootID }
+
+func (b *Btree) KeyType() uint8 { return b.keyType }
+
+func (b *Btree) findLeftmostLeaf() uint32 {
+	p := b.pager.Get(b.rootID)
+	for p.PageType() == page.TypeInternal {
+		var childID uint32
+		if p.RecordCount() > 0 {
+			childID = binary.BigEndian.Uint32(p.ValueByIndex(0))
+		} else {
+			childID = p.RightPointer()
+		}
+		b.pager.Unpin(p.PageID())
+		p = b.pager.Get(childID)
+	}
+	id := p.PageID()
+	b.pager.Unpin(id)
+	return id
+}
+
+func (b *Btree) findRightmostLeaf() uint32 {
+	p := b.pager.Get(b.rootID)
+	for p.PageType() == page.TypeInternal {
+		childID := p.RightPointer()
+		b.pager.Unpin(p.PageID())
+		p = b.pager.Get(childID)
+	}
+	id := p.PageID()
+	b.pager.Unpin(id)
+	return id
 }
 
 // Search traverses the tree from root to leaf and returns the value associated
