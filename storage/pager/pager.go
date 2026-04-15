@@ -2,11 +2,15 @@
 package pager
 
 import (
+	"container/list"
 	"fmt"
 	"os"
 
 	"github.com/guiwoch/toyDB/storage/page"
 )
+
+// DefaultCacheSize caps the buffer pool at 1024 pages (~8 MiB) by default.
+const DefaultCacheSize = 1024
 
 type Pager struct {
 	pins         []uint8
@@ -15,39 +19,53 @@ type Pager struct {
 	file         *os.File
 	newID        uint32
 	freeListHead uint32
+
+	cacheCap int
+	lru      *list.List
+	lruNodes map[uint32]*list.Element
+}
+
+// Option configures optional Pager behavior.
+type Option func(*Pager)
+
+// WithCacheSize sets the maximum number of pages held in the buffer pool.
+// A value of 0 disables the cap.
+func WithCacheSize(n int) Option {
+	return func(p *Pager) { p.cacheCap = n }
 }
 
 // Open opens (or creates) a pager-backed file. wasFresh reports whether the
 // file was created by this call. Page 0 is reserved for the DB header and is
 // not managed by the buffer pool.
-func Open(filename string) (*Pager, bool, error) {
+func Open(filename string, opts ...Option) (*Pager, bool, error) {
 	file, created, err := openFile(filename)
 	if err != nil {
 		return nil, false, err
 	}
-	if created {
-		return &Pager{
-			pages: make(map[uint32]*page.Page),
-			dirty: make(map[uint32]struct{}),
-			file:  file,
-			newID: 1,
-		}, true, nil
+	newID := uint32(1)
+	if !created {
+		stat, err := file.Stat()
+		if err != nil {
+			file.Close()
+			return nil, false, err
+		}
+		if n := uint32(stat.Size() / int64(page.PageSize)); n > 1 {
+			newID = n
+		}
 	}
-	stat, err := file.Stat()
-	if err != nil {
-		file.Close()
-		return nil, false, err
+	p := &Pager{
+		pages:    make(map[uint32]*page.Page),
+		dirty:    make(map[uint32]struct{}),
+		file:     file,
+		newID:    newID,
+		cacheCap: DefaultCacheSize,
+		lru:      list.New(),
+		lruNodes: make(map[uint32]*list.Element),
 	}
-	newID := uint32(stat.Size() / int64(page.PageSize))
-	if newID == 0 {
-		newID = 1
+	for _, opt := range opts {
+		opt(p)
 	}
-	return &Pager{
-		pages: make(map[uint32]*page.Page),
-		dirty: make(map[uint32]struct{}),
-		file:  file,
-		newID: newID,
-	}, false, nil
+	return p, created, nil
 }
 
 // FreeListHead returns the head of the on-disk freelist.
@@ -78,6 +96,8 @@ func (pager *Pager) allocateID() uint32 {
 			panic(fmt.Sprintf("pager: walking freelist at page %d: %v", id, err))
 		}
 		pager.freeListHead = next
+		// If the freed page was still in cache, drop it before reinitialization.
+		pager.dropFromCache(id)
 	}
 	for uint32(len(pager.pins)) <= id {
 		pager.pins = append(pager.pins, 0)
@@ -101,6 +121,9 @@ func (pager *Pager) peekNextFree(id uint32) (uint32, error) {
 }
 
 func (pager *Pager) Allocate(pageType, keyType uint8) *page.Page {
+	if err := pager.evictIfNeeded(); err != nil {
+		panic(err)
+	}
 	id := pager.allocateID()
 	newPage := page.NewPage(id, pageType, keyType)
 	pager.pages[id] = newPage
@@ -109,6 +132,9 @@ func (pager *Pager) Allocate(pageType, keyType uint8) *page.Page {
 }
 
 func (pager *Pager) AllocateFromRecords(pageType, keyType uint8, records *page.Records) *page.Page {
+	if err := pager.evictIfNeeded(); err != nil {
+		panic(err)
+	}
 	id := pager.allocateID()
 	newPage := page.NewPageFromRecords(id, pageType, keyType, records)
 	pager.pages[id] = newPage
@@ -117,7 +143,8 @@ func (pager *Pager) AllocateFromRecords(pageType, keyType uint8, records *page.R
 }
 
 // Free pushes the page onto the freelist so its ID can be reused. The page
-// stays in memory and dirty so its NextFree pointer reaches disk on flush.
+// stays in memory and dirty so its NextFree pointer reaches disk on flush;
+// because its pin is cleared, the LRU may evict it before flush.
 func (pager *Pager) Free(id uint32) bool {
 	p, ok := pager.pages[id]
 	if !ok {
@@ -127,30 +154,95 @@ func (pager *Pager) Free(id uint32) bool {
 	pager.freeListHead = id
 	pager.dirty[id] = struct{}{}
 	pager.pins[id] = 0
+	if _, inLRU := pager.lruNodes[id]; !inLRU {
+		pager.lruNodes[id] = pager.lru.PushBack(id)
+	}
 	return true
 }
 
 func (pager *Pager) Get(id uint32) *page.Page {
-	if _, ok := pager.pages[id]; !ok {
-		p, err := pager.readPage(id)
-		if err != nil {
-			panic(err)
+	if pg, ok := pager.pages[id]; ok {
+		if elem, inLRU := pager.lruNodes[id]; inLRU {
+			pager.lru.Remove(elem)
+			delete(pager.lruNodes, id)
 		}
-		pager.pages[id] = p
+		pager.pins[id]++
+		return pg
 	}
+	if err := pager.evictIfNeeded(); err != nil {
+		panic(err)
+	}
+	pg, err := pager.readPage(id)
+	if err != nil {
+		panic(err)
+	}
+	pager.pages[id] = pg
 	for uint32(len(pager.pins)) <= id {
 		pager.pins = append(pager.pins, 0)
 	}
-	pager.pins[id]++
-	return pager.pages[id]
+	pager.pins[id] = 1
+	return pg
 }
 
 func (pager *Pager) Unpin(id uint32) {
-	if pager.pins[id] > 0 {
-		pager.pins[id]--
+	if pager.pins[id] == 0 {
+		return
+	}
+	pager.pins[id]--
+	if pager.pins[id] == 0 {
+		if _, inLRU := pager.lruNodes[id]; !inLRU {
+			pager.lruNodes[id] = pager.lru.PushBack(id)
+		}
 	}
 }
 
 func (pager *Pager) MarkDirty(id uint32) {
 	pager.dirty[id] = struct{}{}
+}
+
+// evictIfNeeded drops LRU-front pages until the cache is below the cap.
+// Pinned pages aren't in the LRU and can't be evicted.
+func (pager *Pager) evictIfNeeded() error {
+	if pager.cacheCap <= 0 {
+		return nil
+	}
+	for len(pager.pages) >= pager.cacheCap {
+		elem := pager.lru.Front()
+		if elem == nil {
+			return nil // everything pinned; can't evict
+		}
+		id := elem.Value.(uint32)
+		if err := pager.evictPage(id, elem); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// evictPage flushes a dirty page before dropping it from the cache.
+// Does not fsync — Flush is the sync point.
+func (pager *Pager) evictPage(id uint32, elem *list.Element) error {
+	pager.lru.Remove(elem)
+	delete(pager.lruNodes, id)
+	if _, isDirty := pager.dirty[id]; isDirty {
+		pg := pager.pages[id]
+		pg.SetChecksum()
+		if _, err := pager.file.WriteAt(pg[:], int64(id)*int64(page.PageSize)); err != nil {
+			return fmt.Errorf("evict page %d: %w", id, err)
+		}
+		delete(pager.dirty, id)
+	}
+	delete(pager.pages, id)
+	return nil
+}
+
+// dropFromCache removes an id from pages/dirty/lru without writing.
+// Used when allocateID is about to reinitialize the page.
+func (pager *Pager) dropFromCache(id uint32) {
+	if elem, inLRU := pager.lruNodes[id]; inLRU {
+		pager.lru.Remove(elem)
+		delete(pager.lruNodes, id)
+	}
+	delete(pager.pages, id)
+	delete(pager.dirty, id)
 }

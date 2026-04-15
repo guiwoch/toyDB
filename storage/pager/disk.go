@@ -51,6 +51,7 @@ func (pager *Pager) Flush() error {
 			return fmt.Errorf("page flush error: page id %v - %w", id, err)
 		}
 	}
+	pager.dirty = make(map[uint32]struct{})
 	return pager.file.Sync()
 }
 

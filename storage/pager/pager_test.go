@@ -87,6 +87,59 @@ func TestFreelistReusesIDsLIFO(t *testing.T) {
 	}
 }
 
+func TestCacheRespectsCap(t *testing.T) {
+	p, _, err := Open(t.TempDir()+"/test", WithCacheSize(4))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer p.Close()
+
+	var ids []uint32
+	for range 10 {
+		pg := p.Allocate(page.TypeLeaf, page.KeyTypeInt)
+		id := pg.PageID()
+		ids = append(ids, id)
+		p.Unpin(id)
+		if len(p.pages) > 4 {
+			t.Fatalf("cache exceeded cap=4 after allocating id %d: have %d", id, len(p.pages))
+		}
+	}
+	if err := p.Flush(); err != nil {
+		t.Fatal(err)
+	}
+	// Fault pages back in via Get; cap still enforced.
+	for _, id := range ids {
+		p.Get(id)
+		p.Unpin(id)
+		if len(p.pages) > 4 {
+			t.Fatalf("cache exceeded cap=4 after Get(%d): have %d", id, len(p.pages))
+		}
+	}
+}
+
+func TestCacheDoesNotEvictPinned(t *testing.T) {
+	p, _, err := Open(t.TempDir()+"/test", WithCacheSize(2))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer p.Close()
+
+	pinnedPage := p.Allocate(page.TypeLeaf, page.KeyTypeInt)
+	pinned := pinnedPage.PageID() // stays pinned
+	if err := p.Flush(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Fill the cap (pinned is 1 of 2); allocate several more, unpinning each.
+	for range 10 {
+		pg := p.Allocate(page.TypeLeaf, page.KeyTypeInt)
+		p.Unpin(pg.PageID())
+	}
+	if _, stillCached := p.pages[pinned]; !stillCached {
+		t.Fatalf("pinned page %d was evicted", pinned)
+	}
+}
+
 func TestFreelistSurvivesReopen(t *testing.T) {
 	path := t.TempDir() + "/test"
 
