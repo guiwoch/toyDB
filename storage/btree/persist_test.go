@@ -19,10 +19,9 @@ func TestPersistence(t *testing.T) {
 	}
 	for _, r := range records {
 		tree.Insert(r.key[:], r.value[:])
-		if err := tree.Close(); err != nil {
-			t.Fatal(err)
-		}
-
+	}
+	if err := tree.Close(); err != nil {
+		t.Fatal(err)
 	}
 	// Phase 2: reopen and verify
 	tree, err = btree.New(page.KeyTypeInt, path)
