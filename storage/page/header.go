@@ -27,7 +27,7 @@ const (
 	hdrRightPointer = 18 // uint32
 	hdrNextLeaf     = 22 // uint32
 	hdrPrevLeaf     = 26 // uint32
-	HdrIsFree       = 30 // uint8
+	hdrNextFree     = 30 // uint32 (next pointer when page is on the freelist; undefined otherwise)
 )
 
 func (p *Page) PageID() uint32 {
@@ -106,8 +106,12 @@ func (p *Page) SetPrevLeaf(n uint32) {
 	binary.BigEndian.PutUint32(p[hdrPrevLeaf:], n)
 }
 
-func (p *Page) SetFree() {
-	p[HdrIsFree] = 1
+func (p *Page) NextFree() uint32 {
+	return binary.BigEndian.Uint32(p[hdrNextFree:])
+}
+
+func (p *Page) SetNextFree(n uint32) {
+	binary.BigEndian.PutUint32(p[hdrNextFree:], n)
 }
 
 func (p *Page) calculateChecksum() uint32 {

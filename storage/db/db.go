@@ -110,6 +110,7 @@ func Open(path string) (*DB, error) {
 		return nil, err
 	}
 	d.header = h
+	p.SetFreeListHead(h.freeListHead)
 	d.catalog = catalog.Open(btree.Open(p, h.catalogRootID, page.KeyTypeString))
 	return d, nil
 }
@@ -158,6 +159,7 @@ func (d *DB) Close() error {
 		}
 	}
 	d.header.catalogRootID = d.catalog.RootID()
+	d.header.freeListHead = d.pager.FreeListHead()
 
 	if err := d.pager.Flush(); err != nil {
 		return err

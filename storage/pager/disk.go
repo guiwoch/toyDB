@@ -20,23 +20,6 @@ func openFile(filename string) (file *os.File, created bool, err error) {
 	return file, true, err
 }
 
-// buildFreeList reads every page on disk and returns a freeList slice.
-// pageCount is the total number of pages, including page 0.
-func buildFreeList(file *os.File, pageCount uint32) ([]uint32, error) {
-	freeIDs := make([]uint32, 0)
-	isFreeByte := make([]byte, 1)
-	for i := uint32(1); i < pageCount; i++ {
-		_, err := file.ReadAt(isFreeByte, int64(page.PageSize*i+page.HdrIsFree))
-		if err != nil {
-			return nil, err
-		}
-		if isFreeByte[0] != 0 {
-			freeIDs = append(freeIDs, i)
-		}
-	}
-	return freeIDs, nil
-}
-
 var ErrChecksumMismatch = errors.New("page checksum mismatch")
 
 func (pager *Pager) readPage(id uint32) (*page.Page, error) {
