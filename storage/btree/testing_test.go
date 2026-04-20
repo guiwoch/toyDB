@@ -19,6 +19,11 @@ func newTestTree(t *testing.T) *btree.Btree {
 	t.Cleanup(func() {
 		_ = d.Close()
 	})
+	t.Cleanup(func() {
+		if n := d.PinnedCount(); n != 0 {
+			t.Errorf("pin leak: %d pages still pinned after test", n)
+		}
+	})
 	tree, err := d.CreateTable("t", page.KeyTypeInt)
 	if err != nil {
 		t.Fatal(err)

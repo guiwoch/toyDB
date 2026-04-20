@@ -125,6 +125,8 @@ func (b *Btree) splitInternal(pendingSplit *splitResult, p *page.Page) *splitRes
 		panic("no space for insert after internal split")
 	}
 
+	b.pager.Unpin(pendingSplit.left.PageID())
+	b.pager.Unpin(pendingSplit.right.PageID())
 	b.pager.Free(p.PageID())
 	return split
 }

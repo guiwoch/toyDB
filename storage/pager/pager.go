@@ -20,9 +20,10 @@ type Pager struct {
 	newID        uint32
 	freeListHead uint32
 
-	cacheCap int
-	lru      *list.List
-	lruNodes map[uint32]*list.Element
+	cacheCap    int
+	lru         *list.List
+	lruNodes    map[uint32]*list.Element
+	pinnedCount int
 }
 
 // Option configures optional Pager behavior.
@@ -103,6 +104,7 @@ func (pager *Pager) allocateID() uint32 {
 		pager.pins = append(pager.pins, 0)
 	}
 	pager.pins[id] = 1
+	pager.pinnedCount++
 	return id
 }
 
@@ -166,6 +168,9 @@ func (pager *Pager) Get(id uint32) *page.Page {
 			pager.lru.Remove(elem)
 			delete(pager.lruNodes, id)
 		}
+		if pager.pins[id] == 0 {
+			pager.pinnedCount++
+		}
 		pager.pins[id]++
 		return pg
 	}
@@ -181,6 +186,7 @@ func (pager *Pager) Get(id uint32) *page.Page {
 		pager.pins = append(pager.pins, 0)
 	}
 	pager.pins[id] = 1
+	pager.pinnedCount++
 	return pg
 }
 
@@ -190,6 +196,7 @@ func (pager *Pager) Unpin(id uint32) {
 	}
 	pager.pins[id]--
 	if pager.pins[id] == 0 {
+		pager.pinnedCount--
 		if _, inLRU := pager.lruNodes[id]; !inLRU {
 			pager.lruNodes[id] = pager.lru.PushBack(id)
 		}
@@ -235,6 +242,9 @@ func (pager *Pager) evictPage(id uint32, elem *list.Element) error {
 	delete(pager.pages, id)
 	return nil
 }
+
+// PinnedCount returns the number of pages currently pinned.
+func (pager *Pager) PinnedCount() int { return pager.pinnedCount }
 
 // dropFromCache removes an id from pages/dirty/lru without writing.
 // Used when allocateID is about to reinitialize the page.

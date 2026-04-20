@@ -147,6 +147,9 @@ func (d *DB) OpenTable(name string) (*btree.Btree, error) {
 	return tree, nil
 }
 
+// PinnedCount returns the number of pages currently pinned in the buffer pool.
+func (d *DB) PinnedCount() int { return d.pager.PinnedCount() }
+
 // Close persists the catalog and header, then closes the underlying file.
 // Any tree whose root changed during the session is re-upserted first.
 func (d *DB) Close() error {
