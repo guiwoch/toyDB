@@ -16,7 +16,7 @@ func TestChecksumDetectsCorruption(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pg := p.Allocate(page.TypeLeaf, page.KeyTypeInt)
+	pg := p.Allocate(page.TypeLeaf)
 	id := pg.PageID()
 	if err := pg.InsertRecord([]byte{0, 0, 0, 1}, []byte("hello")); err != nil {
 		t.Fatal(err)
@@ -58,7 +58,7 @@ func TestChecksumDetectsCorruption(t *testing.T) {
 
 func allocID(t *testing.T, p *Pager) uint32 {
 	t.Helper()
-	return p.Allocate(page.TypeLeaf, page.KeyTypeInt).PageID()
+	return p.Allocate(page.TypeLeaf).PageID()
 }
 
 func TestFreelistReusesIDsLIFO(t *testing.T) {
@@ -96,7 +96,7 @@ func TestCacheRespectsCap(t *testing.T) {
 
 	var ids []uint32
 	for range 10 {
-		pg := p.Allocate(page.TypeLeaf, page.KeyTypeInt)
+		pg := p.Allocate(page.TypeLeaf)
 		id := pg.PageID()
 		ids = append(ids, id)
 		p.Unpin(id)
@@ -124,7 +124,7 @@ func TestCacheDoesNotEvictPinned(t *testing.T) {
 	}
 	defer p.Close()
 
-	pinnedPage := p.Allocate(page.TypeLeaf, page.KeyTypeInt)
+	pinnedPage := p.Allocate(page.TypeLeaf)
 	pinned := pinnedPage.PageID() // stays pinned
 	if err := p.Flush(); err != nil {
 		t.Fatal(err)
@@ -132,7 +132,7 @@ func TestCacheDoesNotEvictPinned(t *testing.T) {
 
 	// Fill the cap (pinned is 1 of 2); allocate several more, unpinning each.
 	for range 10 {
-		pg := p.Allocate(page.TypeLeaf, page.KeyTypeInt)
+		pg := p.Allocate(page.TypeLeaf)
 		p.Unpin(pg.PageID())
 	}
 	if _, stillCached := p.pages[pinned]; !stillCached {

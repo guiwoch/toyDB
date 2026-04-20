@@ -22,7 +22,6 @@ const (
 	hdrCellAllocOff = 8  // uint16 (first free byte before cell data, grows <-)
 	hdrFreeSpaceOff = 10 // uint16 (total free space)
 	hdrPageTypeOff  = 12 // uint8  (internal=1, leaf=2)
-	hdrKeyTypeOff   = 13 // uint8  (int=1, string=2)
 	hdrChecksumOff  = 14 // uint32
 	hdrRightPointer = 18 // uint32
 	hdrNextLeaf     = 22 // uint32
@@ -76,10 +75,6 @@ func (p *Page) PageType() uint8 {
 
 func (p *Page) setPageType(n uint8) {
 	p[hdrPageTypeOff] = n
-}
-
-func (p *Page) setKeyType(t uint8) {
-	p[hdrKeyTypeOff] = t
 }
 
 func (p *Page) RightPointer() uint32 {

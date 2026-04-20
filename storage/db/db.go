@@ -77,7 +77,7 @@ func Open(path string) (*DB, error) {
 		open:  make(map[string]*btree.Btree),
 	}
 	if fresh {
-		root := p.Allocate(page.TypeLeaf, page.KeyTypeString)
+		root := p.Allocate(page.TypeLeaf)
 		rootID := root.PageID()
 		p.Unpin(rootID)
 		d.catalog = catalog.Open(btree.Open(p, rootID, page.KeyTypeString))
@@ -121,7 +121,7 @@ func (d *DB) CreateTable(name string, keyType uint8) (*btree.Btree, error) {
 	if _, ok := d.catalog.Lookup(name); ok {
 		return nil, ErrTableExists
 	}
-	root := d.pager.Allocate(page.TypeLeaf, keyType)
+	root := d.pager.Allocate(page.TypeLeaf)
 	rootID := root.PageID()
 	d.pager.Unpin(rootID)
 	tree := btree.Open(d.pager, rootID, keyType)

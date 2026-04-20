@@ -217,7 +217,7 @@ func (b *Btree) mergeWithLeft(parent, child, left *page.Page, childIdx uint16) (
 	merged := page.MergeRecords(leftRecords, childRecords)
 	// overwrite left in place so its page ID stays valid and the parent pointer remains correct;
 	leftPrevLeaf := left.PrevLeaf()
-	*left = *page.NewPageFromRecords(left.PageID(), child.PageType(), b.keyType, merged)
+	*left = *page.NewPageFromRecords(left.PageID(), child.PageType(), merged)
 	if child.PageType() == page.TypeLeaf {
 		left.SetPrevLeaf(leftPrevLeaf)
 		b.unlinkLeaf(child)
@@ -262,7 +262,7 @@ func (b *Btree) mergeWithRight(parent, child, right *page.Page, childIdx uint16)
 
 	// save NextLeaf first because NewPageFromRecords zeros all header fields
 	rightNextLeaf := right.NextLeaf()
-	*right = *page.NewPageFromRecords(right.PageID(), child.PageType(), b.keyType, merged)
+	*right = *page.NewPageFromRecords(right.PageID(), child.PageType(), merged)
 	if child.PageType() == page.TypeLeaf {
 		right.SetNextLeaf(rightNextLeaf)
 		b.unlinkLeaf(child)

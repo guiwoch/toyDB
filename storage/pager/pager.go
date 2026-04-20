@@ -122,23 +122,23 @@ func (pager *Pager) peekNextFree(id uint32) (uint32, error) {
 	return pg.NextFree(), nil
 }
 
-func (pager *Pager) Allocate(pageType, keyType uint8) *page.Page {
+func (pager *Pager) Allocate(pageType uint8) *page.Page {
 	if err := pager.evictIfNeeded(); err != nil {
 		panic(err)
 	}
 	id := pager.allocateID()
-	newPage := page.NewPage(id, pageType, keyType)
+	newPage := page.NewPage(id, pageType)
 	pager.pages[id] = newPage
 	pager.dirty[id] = struct{}{}
 	return newPage
 }
 
-func (pager *Pager) AllocateFromRecords(pageType, keyType uint8, records *page.Records) *page.Page {
+func (pager *Pager) AllocateFromRecords(pageType uint8, records *page.Records) *page.Page {
 	if err := pager.evictIfNeeded(); err != nil {
 		panic(err)
 	}
 	id := pager.allocateID()
-	newPage := page.NewPageFromRecords(id, pageType, keyType, records)
+	newPage := page.NewPageFromRecords(id, pageType, records)
 	pager.pages[id] = newPage
 	pager.dirty[id] = struct{}{}
 	return newPage

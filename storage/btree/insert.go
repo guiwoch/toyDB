@@ -20,7 +20,7 @@ func (b *Btree) Insert(key, value []byte) error {
 	splitRes, err := b.insert(key, value, root)
 	b.pager.Unpin(root.PageID())
 	if splitRes != nil {
-		newRoot := b.pager.Allocate(page.TypeInternal, b.keyType)
+		newRoot := b.pager.Allocate(page.TypeInternal)
 		var leftID [4]byte
 		binary.BigEndian.PutUint32(leftID[:], splitRes.left.PageID())
 		newRoot.InsertRecord(splitRes.promotedKey, leftID[:])
@@ -104,8 +104,8 @@ func (b *Btree) splitInternal(pendingSplit *splitResult, p *page.Page) *splitRes
 	leftRecords := p.ExtractRecords(0, midIdx)
 	rightRecords := p.ExtractRecords(midIdx+1, p.RecordCount())
 
-	split.left = b.pager.AllocateFromRecords(page.TypeInternal, b.keyType, leftRecords)
-	split.right = b.pager.AllocateFromRecords(page.TypeInternal, b.keyType, rightRecords)
+	split.left = b.pager.AllocateFromRecords(page.TypeInternal, leftRecords)
+	split.right = b.pager.AllocateFromRecords(page.TypeInternal, rightRecords)
 	split.promotedKey = midKey
 
 	midKeyBytes := binary.BigEndian.Uint32(p.ValueByIndex(midIdx))
@@ -152,8 +152,8 @@ func (b *Btree) splitLeaf(key, value []byte, p *page.Page) *splitResult {
 	leftRecords := p.ExtractRecords(0, midIdx)
 	rightRecords := p.ExtractRecords(midIdx, p.RecordCount())
 
-	split.left = b.pager.AllocateFromRecords(page.TypeLeaf, b.keyType, leftRecords)
-	split.right = b.pager.AllocateFromRecords(page.TypeLeaf, b.keyType, rightRecords)
+	split.left = b.pager.AllocateFromRecords(page.TypeLeaf, leftRecords)
+	split.right = b.pager.AllocateFromRecords(page.TypeLeaf, rightRecords)
 	split.promotedKey = midKey
 	split.oldPageID = p.PageID()
 

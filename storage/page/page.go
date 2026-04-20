@@ -15,7 +15,7 @@ const (
 
 type Page [PageSize]byte
 
-func NewPage(id uint32, pageType, keyType uint8) *Page {
+func NewPage(id uint32, pageType uint8) *Page {
 	var p Page
 	p.setPageID(id)
 	p.setSlotCount(0)
@@ -23,7 +23,6 @@ func NewPage(id uint32, pageType, keyType uint8) *Page {
 	p.setCellAlloc(PageSize)
 	p.setFreeSpace(PageSize - PageHeaderSize)
 	p.setPageType(pageType)
-	p.setKeyType(keyType)
 	return &p
 }
 
@@ -35,7 +34,7 @@ type Records struct {
 
 // NewPageFromRecords creates a new page and populates it with the contents from Records.
 // The slots need to be properly defragmented while the cells are lazily defragmented by the page.
-func NewPageFromRecords(id uint32, pageType, keyType uint8, records *Records) *Page {
+func NewPageFromRecords(id uint32, pageType uint8, records *Records) *Page {
 	var p Page
 	p.setPageID(id)
 
@@ -49,7 +48,6 @@ func NewPageFromRecords(id uint32, pageType, keyType uint8, records *Records) *P
 	p.setFreeSpace(PageSize - (PageHeaderSize + cellsSize + slotsSize))
 
 	p.setPageType(pageType)
-	p.setKeyType(keyType)
 
 	copy(p[PageHeaderSize:], records.Slots)
 	copy(p[PageSize-cellsSize:], records.Cells)

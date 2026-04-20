@@ -47,7 +47,7 @@ func (c *Catalog) Lookup(name string) (Row, bool) {
 }
 
 // Upsert writes the row for the given table name. If a row already exists, it
-// is replaced.
+// is replaced. (Update + Insert)
 func (c *Catalog) Upsert(name string, row Row) error {
 	key := []byte(name)
 	if err := c.tree.Delete(key); err != nil && !errors.Is(err, btree.ErrKeyNotFound) {
