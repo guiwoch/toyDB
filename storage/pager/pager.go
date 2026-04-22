@@ -155,6 +155,9 @@ func (pager *Pager) Free(id uint32) bool {
 	p.SetNextFree(pager.freeListHead)
 	pager.freeListHead = id
 	pager.dirty[id] = struct{}{}
+	if pager.pins[id] > 0 {
+		pager.pinnedCount--
+	}
 	pager.pins[id] = 0
 	if _, inLRU := pager.lruNodes[id]; !inLRU {
 		pager.lruNodes[id] = pager.lru.PushBack(id)

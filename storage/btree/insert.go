@@ -90,6 +90,8 @@ func (b *Btree) updateFromSplit(splitRes *splitResult, p *page.Page) *splitResul
 	} else if err != nil {
 		panic(fmt.Sprintf("Unexpected error during splitting: %v", err))
 	}
+	b.pager.Unpin(splitRes.left.PageID())
+	b.pager.Unpin(splitRes.right.PageID())
 	return nil
 }
 
