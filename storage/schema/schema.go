@@ -113,11 +113,11 @@ func (s *Schema) EncodeRow(row Row) []byte {
 	return buf
 }
 
-func (s *Schema) EncodeKey(row Row) []byte {
+func (s *Schema) EncodeKeyFromRow(row Row) []byte {
 	return row[s.PrimaryKeyIndex].encode(nil)
 }
 
-func (s *Schema) EncodeKeyValue(v Value) []byte {
+func (s *Schema) EncodeKeyFromValue(v Value) []byte {
 	return v.encode(nil)
 }
 
