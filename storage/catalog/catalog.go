@@ -76,3 +76,9 @@ func (c *Catalog) Upsert(name string, row Row) error {
 func (c *Catalog) RootID() uint32 {
 	return c.tree.RootID()
 }
+
+// Delete removes the catalog entry for name. Returns btree.ErrKeyNotFound
+// if the entry does not exist.
+func (c *Catalog) Delete(name string) error {
+	return c.tree.Delete([]byte(name))
+}

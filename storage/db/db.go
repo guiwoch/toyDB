@@ -139,6 +139,19 @@ func (d *DB) CreateTable(name string, s *schema.Schema) (*Table, error) {
 	return t, nil
 }
 
+func (d *DB) DropTable(name string) error {
+	table, err := d.OpenTable(name)
+	if err != nil {
+		return err
+	}
+	if err := d.catalog.Delete(name); err != nil {
+		return err
+	}
+	delete(d.open, name)
+	table.tree.Destroy()
+	return nil
+}
+
 // OpenTable returns the Table for an existing table name, caching it for the
 // remainder of the DB's lifetime.
 func (d *DB) OpenTable(name string) (*Table, error) {

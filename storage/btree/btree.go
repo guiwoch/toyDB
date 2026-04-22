@@ -26,6 +26,27 @@ func Open(p *pager.Pager, rootID uint32) *Btree {
 	return b
 }
 
+// Destroy frees every page in the tree via a BFS from the root. The Btree
+// is unusable after this call.
+func (b *Btree) Destroy() {
+	var frontier []uint32
+	frontier = append(frontier, b.rootID)
+	for len(frontier) > 0 {
+		// pop
+		head := frontier[0]
+		frontier = frontier[1:]
+
+		p := b.pager.Get(head)
+		if p.PageType() == page.TypeInternal {
+			for i := range p.RecordCount() {
+				frontier = append(frontier, binary.BigEndian.Uint32(p.ValueByIndex(i)))
+			}
+			frontier = append(frontier, p.RightPointer())
+		}
+		b.pager.Free(p.PageID())
+	}
+}
+
 func (b *Btree) RootID() uint32 { return b.rootID }
 
 func (b *Btree) findLeftmostLeaf() uint32 {
