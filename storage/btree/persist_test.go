@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/guiwoch/toyDB/storage/db"
-	"github.com/guiwoch/toyDB/storage/page"
+	"github.com/guiwoch/toyDB/storage/schema"
 )
 
 func TestPersistence(t *testing.T) {
@@ -17,10 +17,15 @@ func TestPersistence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tree, err := d.CreateTable("t", page.KeyTypeInt)
+	s, err := schema.New(0, []schema.Column{{Name: "k", Type: schema.TypeInt}})
 	if err != nil {
 		t.Fatal(err)
 	}
+	tbl, err := d.CreateTable("t", s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tree := tbl.Tree()
 	for _, r := range records {
 		tree.Insert(r.key[:], r.value[:])
 	}
@@ -34,10 +39,11 @@ func TestPersistence(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer d.Close()
-	tree, err = d.OpenTable("t")
+	tbl, err = d.OpenTable("t")
 	if err != nil {
 		t.Fatal(err)
 	}
+	tree = tbl.Tree()
 
 	for _, r := range records {
 		value, found := tree.Search(r.key[:])

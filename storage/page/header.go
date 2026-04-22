@@ -6,11 +6,6 @@ import (
 )
 
 const (
-	KeyTypeInt    = 1
-	KeyTypeString = 2
-)
-
-const (
 	TypeInternal = 1
 	TypeLeaf     = 2
 )

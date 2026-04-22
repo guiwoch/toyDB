@@ -14,23 +14,19 @@ type Btree struct {
 	rootID      uint32
 	firstLeafID uint32
 	lastLeafID  uint32
-
-	keyType uint8
 }
 
 // Open returns a Btree rooted at the given page. It descends the tree once to
 // cache the leftmost and rightmost leaf IDs; these are maintained by insert
 // and delete afterwards.
-func Open(p *pager.Pager, rootID uint32, keyType uint8) *Btree {
-	b := &Btree{pager: p, rootID: rootID, keyType: keyType}
+func Open(p *pager.Pager, rootID uint32) *Btree {
+	b := &Btree{pager: p, rootID: rootID}
 	b.firstLeafID = b.findLeftmostLeaf()
 	b.lastLeafID = b.findRightmostLeaf()
 	return b
 }
 
 func (b *Btree) RootID() uint32 { return b.rootID }
-
-func (b *Btree) KeyType() uint8 { return b.keyType }
 
 func (b *Btree) findLeftmostLeaf() uint32 {
 	p := b.pager.Get(b.rootID)

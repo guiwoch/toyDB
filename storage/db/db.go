@@ -11,6 +11,7 @@ import (
 	"github.com/guiwoch/toyDB/storage/catalog"
 	"github.com/guiwoch/toyDB/storage/page"
 	"github.com/guiwoch/toyDB/storage/pager"
+	"github.com/guiwoch/toyDB/storage/schema"
 )
 
 const (
@@ -63,7 +64,7 @@ type DB struct {
 	pager   *pager.Pager
 	catalog *catalog.Catalog
 	header  dbHeader
-	open    map[string]*btree.Btree
+	open    map[string]*Table
 }
 
 // Open opens or creates a DB at the given path.
@@ -74,13 +75,13 @@ func Open(path string) (*DB, error) {
 	}
 	d := &DB{
 		pager: p,
-		open:  make(map[string]*btree.Btree),
+		open:  make(map[string]*Table),
 	}
 	if fresh {
 		root := p.Allocate(page.TypeLeaf)
 		rootID := root.PageID()
 		p.Unpin(rootID)
-		d.catalog = catalog.Open(btree.Open(p, rootID, page.KeyTypeString))
+		d.catalog = catalog.Open(btree.Open(p, rootID))
 		d.header = dbHeader{
 			magic:         magicNumber,
 			version:       currentVersion,
@@ -111,52 +112,66 @@ func Open(path string) (*DB, error) {
 	}
 	d.header = h
 	p.SetFreeListHead(h.freeListHead)
-	d.catalog = catalog.Open(btree.Open(p, h.catalogRootID, page.KeyTypeString))
+	d.catalog = catalog.Open(btree.Open(p, h.catalogRootID))
 	return d, nil
 }
 
 // CreateTable allocates a root leaf, records the table in the catalog, and
-// returns the underlying btree.
-func (d *DB) CreateTable(name string, keyType uint8) (*btree.Btree, error) {
-	if _, ok := d.catalog.Lookup(name); ok {
+// returns a Table bound to the given schema.
+func (d *DB) CreateTable(name string, s *schema.Schema) (*Table, error) {
+	if _, ok, err := d.catalog.Lookup(name); err != nil {
+		return nil, err
+	} else if ok {
 		return nil, ErrTableExists
 	}
 	root := d.pager.Allocate(page.TypeLeaf)
 	rootID := root.PageID()
 	d.pager.Unpin(rootID)
-	tree := btree.Open(d.pager, rootID, keyType)
-	if err := d.catalog.Upsert(name, catalog.Row{RootID: rootID, KeyType: keyType}); err != nil {
+	tree := btree.Open(d.pager, rootID)
+	if err := d.catalog.Upsert(name, catalog.Row{
+		RootID:      rootID,
+		SchemaBytes: s.Marshal(),
+	}); err != nil {
 		return nil, err
 	}
-	d.open[name] = tree
-	return tree, nil
+	t := &Table{name: name, schema: s, tree: tree}
+	d.open[name] = t
+	return t, nil
 }
 
-// OpenTable returns the btree for an existing table, caching it for the
+// OpenTable returns the Table for an existing table name, caching it for the
 // remainder of the DB's lifetime.
-func (d *DB) OpenTable(name string) (*btree.Btree, error) {
-	if tree, ok := d.open[name]; ok {
-		return tree, nil
+func (d *DB) OpenTable(name string) (*Table, error) {
+	if t, ok := d.open[name]; ok {
+		return t, nil
 	}
-	row, ok := d.catalog.Lookup(name)
+	row, ok, err := d.catalog.Lookup(name)
+	if err != nil {
+		return nil, err
+	}
 	if !ok {
 		return nil, ErrTableNotFound
 	}
-	tree := btree.Open(d.pager, row.RootID, row.KeyType)
-	d.open[name] = tree
-	return tree, nil
+	s, err := schema.Unmarshal(row.SchemaBytes)
+	if err != nil {
+		return nil, err
+	}
+	tree := btree.Open(d.pager, row.RootID)
+	t := &Table{name: name, schema: s, tree: tree}
+	d.open[name] = t
+	return t, nil
 }
 
 // PinnedCount returns the number of pages currently pinned in the buffer pool.
 func (d *DB) PinnedCount() int { return d.pager.PinnedCount() }
 
 // Close persists the catalog and header, then closes the underlying file.
-// Any tree whose root changed during the session is re-upserted first.
+// Any table whose root changed during the session is re-upserted first.
 func (d *DB) Close() error {
-	for name, tree := range d.open {
+	for name, t := range d.open {
 		if err := d.catalog.Upsert(name, catalog.Row{
-			RootID:  tree.RootID(),
-			KeyType: tree.KeyType(),
+			RootID:      t.tree.RootID(),
+			SchemaBytes: t.schema.Marshal(),
 		}); err != nil {
 			return err
 		}
