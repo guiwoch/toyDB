@@ -29,7 +29,7 @@ func (t *Table) Get(keyVal Value) (Row, bool, error) {
 	if !ok {
 		return nil, false, nil
 	}
-	row, err := t.schema.decodeRow(val)
+	row, err := t.schema.decodeRow(keyVal, val)
 	if err != nil {
 		return nil, false, err
 	}
@@ -63,7 +63,11 @@ func (t *Table) Scan(lo, hi Value) ([]Row, error) {
 	recs := t.tree.AscendingRange(from, to)
 	rows := make([]Row, 0, len(recs))
 	for _, r := range recs {
-		row, err := t.schema.decodeRow(r.Value)
+		pk, err := t.schema.decodeKey(r.Key)
+		if err != nil {
+			return nil, err
+		}
+		row, err := t.schema.decodeRow(pk, r.Value)
 		if err != nil {
 			return nil, err
 		}
@@ -79,7 +83,11 @@ func (t *Table) ScanDescending(hi, lo Value) ([]Row, error) {
 	recs := t.tree.DescendingRange(from, to)
 	rows := make([]Row, 0, len(recs))
 	for _, r := range recs {
-		row, err := t.schema.decodeRow(r.Value)
+		pk, err := t.schema.decodeKey(r.Key)
+		if err != nil {
+			return nil, err
+		}
+		row, err := t.schema.decodeRow(pk, r.Value)
 		if err != nil {
 			return nil, err
 		}

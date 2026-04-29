@@ -68,10 +68,17 @@ func decodeValue(buf []byte, t ColType) (Value, int, error) {
 
 type Row []Value
 
-func (s *Schema) decodeRow(buf []byte) (Row, error) {
+// decodeRow reconstructs a Row from the primary key value and the encoded
+// non-PK columns. The PK is not stored inside buf; it is spliced in at
+// PrimaryKeyIndex.
+func (s *Schema) decodeRow(pk Value, buf []byte) (Row, error) {
 	row := make(Row, 0, len(s.Columns))
 	offset := 0
-	for _, column := range s.Columns {
+	for i, column := range s.Columns {
+		if i == s.PrimaryKeyIndex {
+			row = append(row, pk)
+			continue
+		}
 		val, n, err := decodeValue(buf[offset:], column.Type)
 		if err != nil {
 			return nil, err
@@ -107,9 +114,14 @@ func (s *Schema) validateRow(row Row) error {
 	return nil
 }
 
+// encodeRow serializes the non-PK columns of a row. The PK is omitted because
+// it is already stored as the B-tree key; decodeRow splices it back in.
 func (s *Schema) encodeRow(row Row) []byte {
 	var buf []byte
-	for _, value := range row {
+	for i, value := range row {
+		if i == s.PrimaryKeyIndex {
+			continue
+		}
 		buf = value.encode(buf)
 	}
 	return buf
