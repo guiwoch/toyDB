@@ -95,21 +95,39 @@ func (s *Schema) decodeRow(pk Value, buf []byte) (Row, error) {
 
 func (s *Schema) validateRow(row Row) error {
 	if len(row) != len(s.columns) {
-		return fmt.Errorf("validate row: got %d values, schema has %d columns", len(row), len(s.columns))
+		return fmt.Errorf("%w: got %d values, schema has %d columns", ErrSchemaMismatch, len(row), len(s.columns))
 	}
 	for i, column := range s.columns {
 		switch column.Type {
 		case TypeInt:
 			if _, ok := row[i].(IntValue); !ok {
-				return fmt.Errorf("validate row: column %d (%q) expects int, got %T", i, column.Name, row[i])
+				return fmt.Errorf("%w: column %d (%q) expects int, got %T", ErrSchemaMismatch, i, column.Name, row[i])
 			}
 		case TypeText:
 			if _, ok := row[i].(TextValue); !ok {
-				return fmt.Errorf("validate row: column %d (%q) expects text, got %T", i, column.Name, row[i])
+				return fmt.Errorf("%w: column %d (%q) expects text, got %T", ErrSchemaMismatch, i, column.Name, row[i])
 			}
 		default:
-			return fmt.Errorf("validate row: column %d (%q) has unknown type %d", i, column.Name, column.Type)
+			return fmt.Errorf("%w: column %d (%q) has unknown type %d", ErrSchemaMismatch, i, column.Name, column.Type)
 		}
+	}
+	return nil
+}
+
+// validateKey checks that v's runtime type matches the primary key column type.
+func (s *Schema) validateKey(v Value) error {
+	pkType := s.columns[s.primaryKeyIndex].Type
+	switch pkType {
+	case TypeInt:
+		if _, ok := v.(IntValue); !ok {
+			return fmt.Errorf("%w: primary key expects int, got %T", ErrKeyTypeMismatch, v)
+		}
+	case TypeText:
+		if _, ok := v.(TextValue); !ok {
+			return fmt.Errorf("%w: primary key expects text, got %T", ErrKeyTypeMismatch, v)
+		}
+	default:
+		return fmt.Errorf("%w: primary key has unknown type %d", ErrKeyTypeMismatch, pkType)
 	}
 	return nil
 }
