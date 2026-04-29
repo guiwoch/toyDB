@@ -18,8 +18,8 @@ type Column struct {
 }
 
 type Schema struct {
-	Columns         []Column
-	PrimaryKeyIndex int
+	columns         []Column
+	primaryKeyIndex int
 }
 
 // Value is the closed set of column value types. The unexported method
@@ -72,10 +72,10 @@ type Row []Value
 // non-PK columns. The PK is not stored inside buf; it is spliced in at
 // PrimaryKeyIndex.
 func (s *Schema) decodeRow(pk Value, buf []byte) (Row, error) {
-	row := make(Row, 0, len(s.Columns))
+	row := make(Row, 0, len(s.columns))
 	offset := 0
-	for i, column := range s.Columns {
-		if i == s.PrimaryKeyIndex {
+	for i, column := range s.columns {
+		if i == s.primaryKeyIndex {
 			row = append(row, pk)
 			continue
 		}
@@ -94,10 +94,10 @@ func (s *Schema) decodeRow(pk Value, buf []byte) (Row, error) {
 }
 
 func (s *Schema) validateRow(row Row) error {
-	if len(row) != len(s.Columns) {
-		return fmt.Errorf("validate row: got %d values, schema has %d columns", len(row), len(s.Columns))
+	if len(row) != len(s.columns) {
+		return fmt.Errorf("validate row: got %d values, schema has %d columns", len(row), len(s.columns))
 	}
-	for i, column := range s.Columns {
+	for i, column := range s.columns {
 		switch column.Type {
 		case TypeInt:
 			if _, ok := row[i].(IntValue); !ok {
@@ -119,7 +119,7 @@ func (s *Schema) validateRow(row Row) error {
 func (s *Schema) encodeRow(row Row) []byte {
 	var buf []byte
 	for i, value := range row {
-		if i == s.PrimaryKeyIndex {
+		if i == s.primaryKeyIndex {
 			continue
 		}
 		buf = value.encode(buf)
@@ -128,7 +128,7 @@ func (s *Schema) encodeRow(row Row) []byte {
 }
 
 func (s *Schema) encodeKeyFromRow(row Row) []byte {
-	return row[s.PrimaryKeyIndex].encode(nil)
+	return row[s.primaryKeyIndex].encode(nil)
 }
 
 func (s *Schema) encodeKeyFromValue(v Value) []byte {
@@ -136,7 +136,7 @@ func (s *Schema) encodeKeyFromValue(v Value) []byte {
 }
 
 func (s *Schema) decodeKey(buf []byte) (Value, error) {
-	pkType := s.Columns[s.PrimaryKeyIndex].Type
+	pkType := s.columns[s.primaryKeyIndex].Type
 	v, n, err := decodeValue(buf, pkType)
 	if err != nil {
 		return nil, err
@@ -179,7 +179,7 @@ func NewSchema(pkIndex int, columns []Column) (*Schema, error) {
 		}
 		seen[column.Name] = struct{}{}
 	}
-	return &Schema{Columns: columns, PrimaryKeyIndex: pkIndex}, nil
+	return &Schema{columns: columns, primaryKeyIndex: pkIndex}, nil
 }
 
 // marshal serializes the schema into its binary on-disk representation.
@@ -196,22 +196,22 @@ func NewSchema(pkIndex int, columns []Column) (*Schema, error) {
 // supported constructor and rejects schemas that violate these invariants,
 // so reaching the panic means a Schema was constructed by some other path.
 func (s *Schema) marshal() []byte {
-	if len(s.Columns) > maxSchemaByteField {
-		panic(fmt.Sprintf("schema: too many columns to marshal: %d", len(s.Columns)))
+	if len(s.columns) > maxSchemaByteField {
+		panic(fmt.Sprintf("schema: too many columns to marshal: %d", len(s.columns)))
 	}
-	if s.PrimaryKeyIndex < 0 || s.PrimaryKeyIndex > maxSchemaByteField {
-		panic(fmt.Sprintf("schema: primary key index out of single-byte range: %d", s.PrimaryKeyIndex))
+	if s.primaryKeyIndex < 0 || s.primaryKeyIndex > maxSchemaByteField {
+		panic(fmt.Sprintf("schema: primary key index out of single-byte range: %d", s.primaryKeyIndex))
 	}
 	var buf []byte
-	buf = append(buf, byte(len(s.Columns)))
-	buf = append(buf, byte(s.PrimaryKeyIndex))
-	for i := range s.Columns {
-		if len(s.Columns[i].Name) > maxSchemaByteField {
-			panic(fmt.Sprintf("schema: column %d name too long to marshal: %d bytes", i, len(s.Columns[i].Name)))
+	buf = append(buf, byte(len(s.columns)))
+	buf = append(buf, byte(s.primaryKeyIndex))
+	for i := range s.columns {
+		if len(s.columns[i].Name) > maxSchemaByteField {
+			panic(fmt.Sprintf("schema: column %d name too long to marshal: %d bytes", i, len(s.columns[i].Name)))
 		}
-		buf = append(buf, byte(s.Columns[i].Type))
-		buf = append(buf, byte(len(s.Columns[i].Name)))
-		buf = append(buf, s.Columns[i].Name...)
+		buf = append(buf, byte(s.columns[i].Type))
+		buf = append(buf, byte(len(s.columns[i].Name)))
+		buf = append(buf, s.columns[i].Name...)
 	}
 	return buf
 }
