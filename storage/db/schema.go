@@ -147,11 +147,20 @@ func (s *Schema) decodeKey(buf []byte) (Value, error) {
 	return v, nil
 }
 
+// maxSchemaByteField bounds the column count, primary key index, and each
+// column name length. The on-disk schema layout encodes these fields in a
+// single byte each.
+const maxSchemaByteField = 255
+
 // NewSchema constructs a Schema, validating that columns are non-empty,
-// names are unique, and the primary key index is in range.
+// names are unique, the primary key index is in range, and that all fields
+// fit within the on-disk schema encoding limits.
 func NewSchema(pkIndex int, columns []Column) (*Schema, error) {
 	if len(columns) == 0 {
 		return nil, fmt.Errorf("create schema: must have at least one column")
+	}
+	if len(columns) > maxSchemaByteField {
+		return nil, fmt.Errorf("create schema: too many columns: %d (max %d)", len(columns), maxSchemaByteField)
 	}
 	if pkIndex < 0 || pkIndex >= len(columns) {
 		return nil, fmt.Errorf("create schema: primary key index %d out of range (%d columns)", pkIndex, len(columns))
@@ -162,6 +171,9 @@ func NewSchema(pkIndex int, columns []Column) (*Schema, error) {
 		if column.Name == "" {
 			return nil, fmt.Errorf("create schema: column has empty name")
 		}
+		if len(column.Name) > maxSchemaByteField {
+			return nil, fmt.Errorf("create schema: column name %q too long: %d bytes (max %d)", column.Name, len(column.Name), maxSchemaByteField)
+		}
 		if _, duplicate := seen[column.Name]; duplicate {
 			return nil, fmt.Errorf("create schema: multiple columns with the same name %q", column.Name)
 		}
@@ -170,7 +182,7 @@ func NewSchema(pkIndex int, columns []Column) (*Schema, error) {
 	return &Schema{Columns: columns, PrimaryKeyIndex: pkIndex}, nil
 }
 
-// marshalSchema serializes the schema into its binary on-disk representation.
+// marshal serializes the schema into its binary on-disk representation.
 //
 // Layout:
 // [1 byte]  column count
@@ -180,13 +192,23 @@ func NewSchema(pkIndex int, columns []Column) (*Schema, error) {
 // - [1 byte]  name length (N)
 // - [N bytes] name
 //
-// Callers must ensure column count, primary key index, and each
-// name length fit in a single byte (<= 255).
+// Panics if any single-byte field would overflow. NewSchema is the only
+// supported constructor and rejects schemas that violate these invariants,
+// so reaching the panic means a Schema was constructed by some other path.
 func (s *Schema) marshal() []byte {
+	if len(s.Columns) > maxSchemaByteField {
+		panic(fmt.Sprintf("schema: too many columns to marshal: %d", len(s.Columns)))
+	}
+	if s.PrimaryKeyIndex < 0 || s.PrimaryKeyIndex > maxSchemaByteField {
+		panic(fmt.Sprintf("schema: primary key index out of single-byte range: %d", s.PrimaryKeyIndex))
+	}
 	var buf []byte
 	buf = append(buf, byte(len(s.Columns)))
 	buf = append(buf, byte(s.PrimaryKeyIndex))
 	for i := range s.Columns {
+		if len(s.Columns[i].Name) > maxSchemaByteField {
+			panic(fmt.Sprintf("schema: column %d name too long to marshal: %d bytes", i, len(s.Columns[i].Name)))
+		}
 		buf = append(buf, byte(s.Columns[i].Type))
 		buf = append(buf, byte(len(s.Columns[i].Name)))
 		buf = append(buf, s.Columns[i].Name...)
