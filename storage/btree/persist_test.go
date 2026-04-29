@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/guiwoch/toyDB/storage/db"
-	"github.com/guiwoch/toyDB/storage/schema"
 )
 
 func TestPersistence(t *testing.T) {
@@ -17,7 +16,7 @@ func TestPersistence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s, err := schema.New(0, []schema.Column{{Name: "k", Type: schema.TypeInt}})
+	s, err := db.NewSchema(0, []db.Column{{Name: "k", Type: db.TypeInt}})
 	if err != nil {
 		t.Fatal(err)
 	}

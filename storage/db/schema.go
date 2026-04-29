@@ -1,4 +1,4 @@
-package schema
+package db
 
 import (
 	"encoding/binary"
@@ -22,6 +22,8 @@ type Schema struct {
 	PrimaryKeyIndex int
 }
 
+// Value is the closed set of column value types. The unexported method
+// prevents external packages from adding new types.
 type Value interface {
 	encode(dst []byte) []byte
 }
@@ -66,7 +68,7 @@ func decodeValue(buf []byte, t ColType) (Value, int, error) {
 
 type Row []Value
 
-func (s *Schema) DecodeRow(buf []byte) (Row, error) {
+func (s *Schema) decodeRow(buf []byte) (Row, error) {
 	row := make(Row, 0, len(s.Columns))
 	offset := 0
 	for _, column := range s.Columns {
@@ -84,7 +86,7 @@ func (s *Schema) DecodeRow(buf []byte) (Row, error) {
 	return row, nil
 }
 
-func (s *Schema) ValidateRow(row Row) error {
+func (s *Schema) validateRow(row Row) error {
 	if len(row) != len(s.Columns) {
 		return fmt.Errorf("validate row: got %d values, schema has %d columns", len(row), len(s.Columns))
 	}
@@ -105,7 +107,7 @@ func (s *Schema) ValidateRow(row Row) error {
 	return nil
 }
 
-func (s *Schema) EncodeRow(row Row) []byte {
+func (s *Schema) encodeRow(row Row) []byte {
 	var buf []byte
 	for _, value := range row {
 		buf = value.encode(buf)
@@ -113,15 +115,15 @@ func (s *Schema) EncodeRow(row Row) []byte {
 	return buf
 }
 
-func (s *Schema) EncodeKeyFromRow(row Row) []byte {
+func (s *Schema) encodeKeyFromRow(row Row) []byte {
 	return row[s.PrimaryKeyIndex].encode(nil)
 }
 
-func (s *Schema) EncodeKeyFromValue(v Value) []byte {
+func (s *Schema) encodeKeyFromValue(v Value) []byte {
 	return v.encode(nil)
 }
 
-func (s *Schema) DecodeKey(buf []byte) (Value, error) {
+func (s *Schema) decodeKey(buf []byte) (Value, error) {
 	pkType := s.Columns[s.PrimaryKeyIndex].Type
 	v, n, err := decodeValue(buf, pkType)
 	if err != nil {
@@ -133,7 +135,9 @@ func (s *Schema) DecodeKey(buf []byte) (Value, error) {
 	return v, nil
 }
 
-func New(pkIndex int, columns []Column) (*Schema, error) {
+// NewSchema constructs a Schema, validating that columns are non-empty,
+// names are unique, and the primary key index is in range.
+func NewSchema(pkIndex int, columns []Column) (*Schema, error) {
 	if len(columns) == 0 {
 		return nil, fmt.Errorf("create schema: must have at least one column")
 	}
@@ -154,7 +158,7 @@ func New(pkIndex int, columns []Column) (*Schema, error) {
 	return &Schema{Columns: columns, PrimaryKeyIndex: pkIndex}, nil
 }
 
-// Marshal serializes the schema into its binary on-disk representation.
+// marshalSchema serializes the schema into its binary on-disk representation.
 //
 // Layout:
 // [1 byte]  column count
@@ -166,7 +170,7 @@ func New(pkIndex int, columns []Column) (*Schema, error) {
 //
 // Callers must ensure column count, primary key index, and each
 // name length fit in a single byte (<= 255).
-func (s *Schema) Marshal() []byte {
+func (s *Schema) marshal() []byte {
 	var buf []byte
 	buf = append(buf, byte(len(s.Columns)))
 	buf = append(buf, byte(s.PrimaryKeyIndex))
@@ -178,7 +182,7 @@ func (s *Schema) Marshal() []byte {
 	return buf
 }
 
-func Unmarshal(data []byte) (*Schema, error) {
+func unmarshalSchema(data []byte) (*Schema, error) {
 	if len(data) < 2 {
 		return nil, fmt.Errorf("unmarshal schema: header truncated: got %d bytes, need 2", len(data))
 	}
@@ -206,5 +210,5 @@ func Unmarshal(data []byte) (*Schema, error) {
 		return nil, fmt.Errorf("unmarshal schema: %d trailing bytes after consuming %d", len(data)-offset, offset)
 	}
 
-	return New(pkIndex, columns)
+	return NewSchema(pkIndex, columns)
 }

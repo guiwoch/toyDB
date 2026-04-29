@@ -5,7 +5,6 @@ import (
 
 	"github.com/guiwoch/toyDB/storage/btree"
 	"github.com/guiwoch/toyDB/storage/db"
-	"github.com/guiwoch/toyDB/storage/schema"
 )
 
 // newTestTree opens a fresh DB backed by a temp file and returns a single
@@ -24,7 +23,7 @@ func newTestTree(t *testing.T) *btree.Btree {
 			t.Errorf("pin leak: %d pages still pinned after test", n)
 		}
 	})
-	s, err := schema.New(0, []schema.Column{{Name: "k", Type: schema.TypeInt}})
+	s, err := db.NewSchema(0, []db.Column{{Name: "k", Type: db.TypeInt}})
 	if err != nil {
 		t.Fatal(err)
 	}

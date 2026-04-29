@@ -11,7 +11,6 @@ import (
 	"github.com/guiwoch/toyDB/storage/catalog"
 	"github.com/guiwoch/toyDB/storage/page"
 	"github.com/guiwoch/toyDB/storage/pager"
-	"github.com/guiwoch/toyDB/storage/schema"
 )
 
 const (
@@ -118,7 +117,7 @@ func Open(path string) (*DB, error) {
 
 // CreateTable allocates a root leaf, records the table in the catalog, and
 // returns a Table bound to the given schema.
-func (d *DB) CreateTable(name string, s *schema.Schema) (*Table, error) {
+func (d *DB) CreateTable(name string, s *Schema) (*Table, error) {
 	if _, ok, err := d.catalog.Lookup(name); err != nil {
 		return nil, err
 	} else if ok {
@@ -130,7 +129,7 @@ func (d *DB) CreateTable(name string, s *schema.Schema) (*Table, error) {
 	tree := btree.Open(d.pager, rootID)
 	if err := d.catalog.Upsert(name, catalog.Row{
 		RootID:      rootID,
-		SchemaBytes: s.Marshal(),
+		SchemaBytes: s.marshal(),
 	}); err != nil {
 		return nil, err
 	}
@@ -165,7 +164,7 @@ func (d *DB) OpenTable(name string) (*Table, error) {
 	if !ok {
 		return nil, ErrTableNotFound
 	}
-	s, err := schema.Unmarshal(row.SchemaBytes)
+	s, err := unmarshalSchema(row.SchemaBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -184,7 +183,7 @@ func (d *DB) Close() error {
 	for name, t := range d.open {
 		if err := d.catalog.Upsert(name, catalog.Row{
 			RootID:      t.tree.RootID(),
-			SchemaBytes: t.schema.Marshal(),
+			SchemaBytes: t.schema.marshal(),
 		}); err != nil {
 			return err
 		}
