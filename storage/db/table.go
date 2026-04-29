@@ -1,6 +1,8 @@
 package db
 
 import (
+	"iter"
+
 	"github.com/guiwoch/toyDB/storage/btree"
 )
 
@@ -70,56 +72,68 @@ func (t *Table) Delete(keyVal Value) error {
 // Scan returns rows with primary keys in [lo, hi], ascending. Returns
 // ErrKeyTypeMismatch if either bound's type does not match the primary
 // key column type.
-func (t *Table) Scan(lo, hi Value) ([]Row, error) {
-	if err := t.schema.validateKey(lo); err != nil {
-		return nil, err
-	}
-	if err := t.schema.validateKey(hi); err != nil {
-		return nil, err
-	}
-	from := t.schema.encodeKeyFromValue(lo)
-	to := t.schema.encodeKeyFromValue(hi)
-	recs := t.tree.AscendingRange(from, to)
-	rows := make([]Row, 0, len(recs))
-	for _, r := range recs {
-		pk, err := t.schema.decodeKey(r.Key)
-		if err != nil {
-			return nil, err
+func (t *Table) Scan(lo, hi Value) iter.Seq2[Row, error] {
+	return func(yield func(Row, error) bool) {
+		if err := t.schema.validateKey(lo); err != nil {
+			yield(nil, err)
+			return
 		}
-		row, err := t.schema.decodeRow(pk, r.Value)
-		if err != nil {
-			return nil, err
+		if err := t.schema.validateKey(hi); err != nil {
+			yield(nil, err)
+			return
 		}
-		rows = append(rows, row)
+		from := t.schema.encodeKeyFromValue(lo)
+		to := t.schema.encodeKeyFromValue(hi)
+		recs := t.tree.AscendingRange(from, to)
+		for r := range recs {
+			pk, err := t.schema.decodeKey(r.Key)
+			if err != nil {
+				yield(nil, err)
+				return
+			}
+			row, err := t.schema.decodeRow(pk, r.Value)
+			if err != nil {
+				yield(nil, err)
+				return
+			}
+			if !yield(row, nil) {
+				return
+			}
+		}
 	}
-	return rows, nil
 }
 
 // ScanDescending returns rows with primary keys in [lo, hi], descending.
 // Returns ErrKeyTypeMismatch if either bound's type does not match the
 // primary key column type.
-func (t *Table) ScanDescending(hi, lo Value) ([]Row, error) {
-	if err := t.schema.validateKey(hi); err != nil {
-		return nil, err
-	}
-	if err := t.schema.validateKey(lo); err != nil {
-		return nil, err
-	}
-	from := t.schema.encodeKeyFromValue(hi)
-	to := t.schema.encodeKeyFromValue(lo)
+func (t *Table) ScanDescending(hi, lo Value) iter.Seq2[Row, error] {
+	return func(yield func(Row, error) bool) {
+		if err := t.schema.validateKey(hi); err != nil {
+			yield(nil, err)
+			return
+		}
+		if err := t.schema.validateKey(lo); err != nil {
+			yield(nil, err)
+			return
+		}
+		from := t.schema.encodeKeyFromValue(hi)
+		to := t.schema.encodeKeyFromValue(lo)
 
-	recs := t.tree.DescendingRange(from, to)
-	rows := make([]Row, 0, len(recs))
-	for _, r := range recs {
-		pk, err := t.schema.decodeKey(r.Key)
-		if err != nil {
-			return nil, err
+		recs := t.tree.DescendingRange(from, to)
+		for r := range recs {
+			pk, err := t.schema.decodeKey(r.Key)
+			if err != nil {
+				yield(nil, err)
+				return
+			}
+			row, err := t.schema.decodeRow(pk, r.Value)
+			if err != nil {
+				yield(nil, err)
+				return
+			}
+			if !yield(row, nil) {
+				return
+			}
 		}
-		row, err := t.schema.decodeRow(pk, r.Value)
-		if err != nil {
-			return nil, err
-		}
-		rows = append(rows, row)
 	}
-	return rows, nil
 }
