@@ -10,9 +10,7 @@ type Table struct {
 	tree   *btree.Btree
 }
 
-func (t *Table) Name() string       { return t.name }
-func (t *Table) Schema() *Schema    { return t.schema }
-func (t *Table) Tree() *btree.Btree { return t.tree }
+func (t *Table) Name() string { return t.name }
 
 func (t *Table) Insert(row Row) error {
 	if err := t.schema.validateRow(row); err != nil {
