@@ -55,11 +55,11 @@ func decodeHeader(buf []byte) (dbHeader, error) {
 }
 
 var (
-	ErrTableExists      = errors.New("table already exists")
-	ErrTableNotFound    = errors.New("table not found")
-	ErrNotFound         = errors.New("row not found")
-	ErrSchemaMismatch   = errors.New("row does not match schema")
-	ErrKeyTypeMismatch  = errors.New("key value type does not match primary key column type")
+	ErrTableExists     = errors.New("table already exists")
+	ErrTableNotFound   = errors.New("table not found")
+	ErrNotFound        = errors.New("row not found")
+	ErrSchemaMismatch  = errors.New("row does not match schema")
+	ErrKeyTypeMismatch = errors.New("key value type does not match primary key column type")
 )
 
 type DB struct {
@@ -198,4 +198,9 @@ func (d *DB) Close() error {
 		return err
 	}
 	return d.pager.Close()
+}
+
+// Tables lists the names of all tables
+func (d *DB) Tables() []string {
+	return d.catalog.Names()
 }

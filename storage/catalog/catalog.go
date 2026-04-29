@@ -82,3 +82,12 @@ func (c *Catalog) RootID() uint32 {
 func (c *Catalog) Delete(name string) error {
 	return c.tree.Delete([]byte(name))
 }
+
+// Names returns all the names of the tables on the catalog
+func (c *Catalog) Names() []string {
+	var names []string
+	for record := range c.tree.AscendingRange(nil, nil) {
+		names = append(names, string(record.Key))
+	}
+	return names
+}

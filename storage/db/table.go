@@ -12,7 +12,8 @@ type Table struct {
 	tree   *btree.Btree
 }
 
-func (t *Table) Name() string { return t.name }
+func (t *Table) Name() string     { return t.name }
+func (t *Table) Schema() *Schema  { return t.schema }
 
 // Insert encodes and stores a row. Returns ErrSchemaMismatch if the row's
 // shape or types do not match the table schema.

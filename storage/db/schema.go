@@ -3,6 +3,7 @@ package db
 import (
 	"encoding/binary"
 	"fmt"
+	"slices"
 )
 
 type ColType uint8
@@ -20,6 +21,17 @@ type Column struct {
 type Schema struct {
 	columns         []Column
 	primaryKeyIndex int
+}
+
+// Columns returns a copy of the schema's columns. Mutating the returned
+// slice does not affect the schema.
+func (s *Schema) Columns() []Column {
+	return slices.Clone(s.columns)
+}
+
+// PrimaryKey returns the name of the primary key column.
+func (s *Schema) PrimaryKey() string {
+	return s.columns[s.primaryKeyIndex].Name
 }
 
 // Value is the closed set of column value types. The unexported method
