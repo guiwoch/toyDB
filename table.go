@@ -78,22 +78,28 @@ func (t *Table) Delete(keyVal Value) error {
 	return t.tree.Delete(key)
 }
 
-// Scan returns rows with primary keys in [lo, hi], ascending. Returns
-// ErrKeyTypeMismatch if either bound's type does not match the primary
-// key column type.
+// Scan returns rows with primary keys in [lo, hi), ascending. The upper
+// bound is exclusive. A nil bound is unbounded on that side; Scan(nil, nil)
+// returns every row. Returns ErrKeyTypeMismatch if either bound's type
+// does not match the primary key column type.
 func (t *Table) Scan(lo, hi Value) iter.Seq2[Row, error] {
 	return func(yield func(Row, error) bool) {
-		if err := t.schema.validateKey(lo); err != nil {
-			yield(nil, err)
-			return
+		var loKey, hiKey []byte
+		if lo != nil {
+			if err := t.schema.validateKey(lo); err != nil {
+				yield(nil, err)
+				return
+			}
+			loKey = t.schema.encodeKeyFromValue(lo)
 		}
-		if err := t.schema.validateKey(hi); err != nil {
-			yield(nil, err)
-			return
+		if hi != nil {
+			if err := t.schema.validateKey(hi); err != nil {
+				yield(nil, err)
+				return
+			}
+			hiKey = t.schema.encodeKeyFromValue(hi)
 		}
-		from := t.schema.encodeKeyFromValue(lo)
-		to := t.schema.encodeKeyFromValue(hi)
-		recs := t.tree.AscendingRange(from, to)
+		recs := t.tree.AscendingRange(loKey, hiKey)
 		for r := range recs {
 			pk, err := t.schema.decodeKey(r.Key)
 			if err != nil {
@@ -112,23 +118,30 @@ func (t *Table) Scan(lo, hi Value) iter.Seq2[Row, error] {
 	}
 }
 
-// ScanDescending returns rows with primary keys in [lo, hi], descending.
-// Returns ErrKeyTypeMismatch if either bound's type does not match the
-// primary key column type.
-func (t *Table) ScanDescending(hi, lo Value) iter.Seq2[Row, error] {
+// ScanDescending returns rows with primary keys in (lo, hi], descending.
+// The upper bound is inclusive and the lower bound is exclusive (the
+// mirror of [Table.Scan]). A nil bound is unbounded on that side;
+// ScanDescending(nil, nil) returns every row. Returns ErrKeyTypeMismatch
+// if either bound's type does not match the primary key column type.
+func (t *Table) ScanDescending(lo, hi Value) iter.Seq2[Row, error] {
 	return func(yield func(Row, error) bool) {
-		if err := t.schema.validateKey(hi); err != nil {
-			yield(nil, err)
-			return
+		var loKey, hiKey []byte
+		if lo != nil {
+			if err := t.schema.validateKey(lo); err != nil {
+				yield(nil, err)
+				return
+			}
+			loKey = t.schema.encodeKeyFromValue(lo)
 		}
-		if err := t.schema.validateKey(lo); err != nil {
-			yield(nil, err)
-			return
+		if hi != nil {
+			if err := t.schema.validateKey(hi); err != nil {
+				yield(nil, err)
+				return
+			}
+			hiKey = t.schema.encodeKeyFromValue(hi)
 		}
-		from := t.schema.encodeKeyFromValue(hi)
-		to := t.schema.encodeKeyFromValue(lo)
 
-		recs := t.tree.DescendingRange(from, to)
+		recs := t.tree.DescendingRange(loKey, hiKey)
 		for r := range recs {
 			pk, err := t.schema.decodeKey(r.Key)
 			if err != nil {

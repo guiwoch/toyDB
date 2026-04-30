@@ -139,31 +139,31 @@ func TestDescendingRangePartialScan(t *testing.T) {
 
 	t.Run("nil upper bound, existing lower bound", func(t *testing.T) {
 		t.Parallel()
-		got := slices.Collect(newPartialScanTree(t).DescendingRange(nil, []byte{0, 0, 0, 5}))
+		got := slices.Collect(newPartialScanTree(t).DescendingRange([]byte{0, 0, 0, 5}, nil))
 		assertRangeEqual(t, got, []btree.Record{r9, r7})
 	})
 
 	t.Run("existing upper bound, nil lower bound", func(t *testing.T) {
 		t.Parallel()
-		got := slices.Collect(newPartialScanTree(t).DescendingRange([]byte{0, 0, 0, 5}, nil))
+		got := slices.Collect(newPartialScanTree(t).DescendingRange(nil, []byte{0, 0, 0, 5}))
 		assertRangeEqual(t, got, []btree.Record{r5, r3, r1})
 	})
 
 	t.Run("existing upper and lower bounds", func(t *testing.T) {
 		t.Parallel()
-		got := slices.Collect(newPartialScanTree(t).DescendingRange([]byte{0, 0, 0, 7}, []byte{0, 0, 0, 3}))
+		got := slices.Collect(newPartialScanTree(t).DescendingRange([]byte{0, 0, 0, 3}, []byte{0, 0, 0, 7}))
 		assertRangeEqual(t, got, []btree.Record{r7, r5})
 	})
 
 	t.Run("non-existing upper bound", func(t *testing.T) {
 		t.Parallel()
-		got := slices.Collect(newPartialScanTree(t).DescendingRange([]byte{0, 0, 0, 8}, []byte{0, 0, 0, 2}))
+		got := slices.Collect(newPartialScanTree(t).DescendingRange([]byte{0, 0, 0, 2}, []byte{0, 0, 0, 8}))
 		assertRangeEqual(t, got, []btree.Record{r7, r5, r3})
 	})
 
 	t.Run("non-existing lower bound", func(t *testing.T) {
 		t.Parallel()
-		got := slices.Collect(newPartialScanTree(t).DescendingRange([]byte{0, 0, 0, 7}, []byte{0, 0, 0, 4}))
+		got := slices.Collect(newPartialScanTree(t).DescendingRange([]byte{0, 0, 0, 4}, []byte{0, 0, 0, 7}))
 		assertRangeEqual(t, got, []btree.Record{r7, r5})
 	})
 }

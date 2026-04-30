@@ -9,15 +9,15 @@ import (
 
 type Record struct{ Key, Value []byte }
 
-// AscendingRange returns the leaf values [from, to) keys in ascending order.
-// Nil is used as the lower and upper bounds
-func (b *Btree) AscendingRange(from, to []byte) iter.Seq[Record] {
+// AscendingRange returns records with keys in [lo, hi), ascending.
+// A nil bound means unbounded on that side.
+func (b *Btree) AscendingRange(lo, hi []byte) iter.Seq[Record] {
 	return func(yield func(Record) bool) {
 		var p *page.Page
-		if from == nil { // use the first page
+		if lo == nil { // use the first page
 			p = b.pager.Get(b.firstLeafID)
 		} else {
-			p = b.findLeaf(from)
+			p = b.findLeaf(lo)
 		}
 
 		if p.RecordCount() == 0 {
@@ -25,12 +25,12 @@ func (b *Btree) AscendingRange(from, to []byte) iter.Seq[Record] {
 			return
 		}
 
-		i, _ := p.SearchKey(from)
+		i, _ := p.SearchKey(lo)
 
 		var key []byte
 		for {
 			key = p.KeyByIndex(i)
-			if to != nil && bytes.Compare(key, to) >= 0 {
+			if hi != nil && bytes.Compare(key, hi) >= 0 {
 				break
 			}
 			value := p.ValueByIndex(i)
@@ -39,7 +39,7 @@ func (b *Btree) AscendingRange(from, to []byte) iter.Seq[Record] {
 				return
 			}
 
-			if i == p.RecordCount()-1 { // no need to worry about to being nil, this covers it
+			if i == p.RecordCount()-1 { // no need to worry about hi being nil, this covers it
 				if p.NextLeaf() == 0 {
 					break
 				}
@@ -56,35 +56,35 @@ func (b *Btree) AscendingRange(from, to []byte) iter.Seq[Record] {
 	}
 }
 
-// DescendingRange returns the leaf values [from, to) keys in descending order.
-// Nil is used as the lower and upper bounds
-func (b *Btree) DescendingRange(from, to []byte) iter.Seq[Record] {
+// DescendingRange returns records with keys in (lo, hi], descending.
+// A nil bound means unbounded on that side.
+func (b *Btree) DescendingRange(lo, hi []byte) iter.Seq[Record] {
 	return func(yield func(Record) bool) {
 		var p *page.Page
 
-		if from == nil { // use the last page
+		if hi == nil { // use the last page
 			p = b.pager.Get(b.lastLeafID)
 			if p.RecordCount() == 0 {
 				b.pager.Unpin(p.PageID())
 				return
 			}
-			from = p.KeyByIndex(p.RecordCount() - 1)
+			hi = p.KeyByIndex(p.RecordCount() - 1)
 		} else {
-			p = b.findLeaf(from)
+			p = b.findLeaf(hi)
 			if p.RecordCount() == 0 {
 				b.pager.Unpin(p.PageID())
 				return
 			}
 		}
 
-		i, found := p.SearchKey(from)
+		i, found := p.SearchKey(hi)
 		if !found {
 			i--
 		}
 
 		for {
 			key := p.KeyByIndex(i)
-			if to != nil && bytes.Compare(key, to) <= 0 {
+			if lo != nil && bytes.Compare(key, lo) <= 0 {
 				break
 			}
 			value := p.ValueByIndex(i)
