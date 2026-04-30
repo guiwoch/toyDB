@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"slices"
+	"time"
 )
 
 // ColType identifies the data type of a column.
@@ -16,6 +17,11 @@ const (
 	TypeInt ColType = iota + 1
 	// TypeText stores values as length-prefixed UTF-8 strings ([TextValue]).
 	TypeText
+	// TypeBool stores values as a single byte, 0 or 1 ([BoolValue]).
+	TypeBool
+	// TypeTimestamp stores values as 8-byte big-endian Unix nanoseconds
+	// ([TimestampValue]).
+	TypeTimestamp
 	// numColTypes is one past the last declared ColType. New types must be
 	// appended above this sentinel so on-disk tags remain stable.
 	numColTypes
@@ -61,6 +67,29 @@ type IntValue uint64
 // TextValue is the [Value] for [TypeText] columns.
 type TextValue string
 
+// BoolValue is the [Value] for [TypeBool] columns.
+type BoolValue bool
+
+// TimestampValue is the [Value] for [TypeTimestamp] columns. It stores a
+// time as Unix nanoseconds; chronological order matches numeric order, so
+// timestamps are safe to use as primary keys.
+type TimestampValue int64
+
+// TimestampNow returns a TimestampValue for the current wall-clock time.
+func TimestampNow() TimestampValue {
+	return TimestampValue(time.Now().UnixNano())
+}
+
+// Time returns the timestamp as a [time.Time] in UTC.
+func (v TimestampValue) Time() time.Time {
+	return time.Unix(0, int64(v)).UTC()
+}
+
+// String formats the timestamp as RFC3339 so %v output is human-readable.
+func (v TimestampValue) String() string {
+	return v.Time().Format(time.RFC3339Nano)
+}
+
 func (v IntValue) encode(dst []byte) []byte {
 	return binary.BigEndian.AppendUint64(dst, uint64(v))
 }
@@ -68,6 +97,17 @@ func (v IntValue) encode(dst []byte) []byte {
 func (v TextValue) encode(dst []byte) []byte {
 	dst = binary.BigEndian.AppendUint32(dst, uint32(len(v)))
 	return append(dst, v...)
+}
+
+func (v BoolValue) encode(dst []byte) []byte {
+	if v {
+		return append(dst, 1)
+	}
+	return append(dst, 0)
+}
+
+func (v TimestampValue) encode(dst []byte) []byte {
+	return binary.BigEndian.AppendUint64(dst, uint64(v))
 }
 
 func decodeValue(buf []byte, t ColType) (Value, int, error) {
@@ -88,6 +128,19 @@ func decodeValue(buf []byte, t ColType) (Value, int, error) {
 			return nil, 0, fmt.Errorf("decode text body: length %d but only %d bytes available", length, len(buf)-4)
 		}
 		return TextValue(buf[4 : 4+length]), 4 + int(length), nil
+
+	case TypeBool:
+		if len(buf) < 1 {
+			return nil, 0, fmt.Errorf("decode bool: need 1 byte, have %d", len(buf))
+		}
+		return BoolValue(buf[0] != 0), 1, nil
+
+	case TypeTimestamp:
+		if len(buf) < 8 {
+			return nil, 0, fmt.Errorf("decode timestamp: need 8 bytes, have %d", len(buf))
+		}
+		n := binary.BigEndian.Uint64(buf[:8])
+		return TimestampValue(n), 8, nil
 
 	default:
 		return nil, 0, fmt.Errorf("decode value: unknown type %d", t)
@@ -137,6 +190,14 @@ func (s *Schema) validateRow(row Row) error {
 			if _, ok := row[i].(TextValue); !ok {
 				return fmt.Errorf("%w: column %d (%q) expects text, got %T", ErrSchemaMismatch, i, column.Name, row[i])
 			}
+		case TypeBool:
+			if _, ok := row[i].(BoolValue); !ok {
+				return fmt.Errorf("%w: column %d (%q) expects bool, got %T", ErrSchemaMismatch, i, column.Name, row[i])
+			}
+		case TypeTimestamp:
+			if _, ok := row[i].(TimestampValue); !ok {
+				return fmt.Errorf("%w: column %d (%q) expects timestamp, got %T", ErrSchemaMismatch, i, column.Name, row[i])
+			}
 		default:
 			return fmt.Errorf("%w: column %d (%q) has unknown type %d", ErrSchemaMismatch, i, column.Name, column.Type)
 		}
@@ -155,6 +216,14 @@ func (s *Schema) validateKey(v Value) error {
 	case TypeText:
 		if _, ok := v.(TextValue); !ok {
 			return fmt.Errorf("%w: primary key expects text, got %T", ErrKeyTypeMismatch, v)
+		}
+	case TypeBool:
+		if _, ok := v.(BoolValue); !ok {
+			return fmt.Errorf("%w: primary key expects bool, got %T", ErrKeyTypeMismatch, v)
+		}
+	case TypeTimestamp:
+		if _, ok := v.(TimestampValue); !ok {
+			return fmt.Errorf("%w: primary key expects timestamp, got %T", ErrKeyTypeMismatch, v)
 		}
 	default:
 		return fmt.Errorf("%w: primary key has unknown type %d", ErrKeyTypeMismatch, pkType)
