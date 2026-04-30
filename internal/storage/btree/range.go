@@ -20,6 +20,11 @@ func (b *Btree) AscendingRange(from, to []byte) iter.Seq[Record] {
 			p = b.findLeaf(from)
 		}
 
+		if p.RecordCount() == 0 {
+			b.pager.Unpin(p.PageID())
+			return
+		}
+
 		i, _ := p.SearchKey(from)
 
 		var key []byte
@@ -59,9 +64,17 @@ func (b *Btree) DescendingRange(from, to []byte) iter.Seq[Record] {
 
 		if from == nil { // use the last page
 			p = b.pager.Get(b.lastLeafID)
+			if p.RecordCount() == 0 {
+				b.pager.Unpin(p.PageID())
+				return
+			}
 			from = p.KeyByIndex(p.RecordCount() - 1)
 		} else {
 			p = b.findLeaf(from)
+			if p.RecordCount() == 0 {
+				b.pager.Unpin(p.PageID())
+				return
+			}
 		}
 
 		i, found := p.SearchKey(from)
