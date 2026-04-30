@@ -13,10 +13,17 @@ type ColType uint8
 const (
 	// TypeInt stores values as 8-byte big-endian unsigned integers
 	// ([IntValue]).
-	TypeInt ColType = 1
+	TypeInt ColType = iota + 1
 	// TypeText stores values as length-prefixed UTF-8 strings ([TextValue]).
-	TypeText ColType = 2
+	TypeText
+	// numColTypes is one past the last declared ColType. New types must be
+	// appended above this sentinel so on-disk tags remain stable.
+	numColTypes
 )
+
+func (t ColType) valid() bool {
+	return t > 0 && t < numColTypes
+}
 
 // Column describes a single column in a [Schema] by name and type.
 type Column struct {
@@ -214,6 +221,9 @@ func NewSchema(pkIndex int, columns []Column) (*Schema, error) {
 		}
 		if len(column.Name) > maxSchemaByteField {
 			return nil, fmt.Errorf("create schema: column name %q too long: %d bytes (max %d)", column.Name, len(column.Name), maxSchemaByteField)
+		}
+		if !column.Type.valid() {
+			return nil, fmt.Errorf("create schema: column %q has unknown type %d", column.Name, column.Type)
 		}
 		if _, duplicate := seen[column.Name]; duplicate {
 			return nil, fmt.Errorf("create schema: multiple columns with the same name %q", column.Name)
