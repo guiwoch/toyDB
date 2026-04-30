@@ -3,9 +3,9 @@ package btree_test
 import (
 	"testing"
 
-	"github.com/guiwoch/toyDB/storage/btree"
-	"github.com/guiwoch/toyDB/storage/page"
-	"github.com/guiwoch/toyDB/storage/pager"
+	"github.com/guiwoch/toyDB/internal/storage/btree"
+	"github.com/guiwoch/toyDB/internal/storage/page"
+	"github.com/guiwoch/toyDB/internal/storage/pager"
 )
 
 // newTestTree opens a fresh pager backed by a temp file and returns a btree

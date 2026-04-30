@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/guiwoch/toyDB/storage/page"
+	"github.com/guiwoch/toyDB/internal/storage/page"
 )
 
 // DefaultCacheSize caps the buffer pool at 1024 pages (~8 MiB) by default.

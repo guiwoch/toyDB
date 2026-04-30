@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"iter"
 
-	"github.com/guiwoch/toyDB/storage/page"
+	"github.com/guiwoch/toyDB/internal/storage/page"
 )
 
 type Record struct{ Key, Value []byte }

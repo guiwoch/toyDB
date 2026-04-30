@@ -1,19 +1,27 @@
-package db
+package toydb
 
 import (
 	"iter"
 
-	"github.com/guiwoch/toyDB/storage/btree"
+	"github.com/guiwoch/toyDB/internal/storage/btree"
 )
 
+// Table is a handle to one user table inside a [DB]. Obtain a Table with
+// [DB.CreateTable] or [DB.OpenTable]. A Table is valid until the parent
+// DB is closed.
 type Table struct {
 	name   string
 	schema *Schema
 	tree   *btree.Btree
 }
 
-func (t *Table) Name() string     { return t.name }
-func (t *Table) Schema() *Schema  { return t.schema }
+// Name returns the table's name as it was passed to CreateTable.
+func (t *Table) Name() string { return t.name }
+
+// Schema returns the table's schema. The returned pointer is shared with
+// the table; use [Schema.Columns] and [Schema.PrimaryKey] for read-only
+// inspection.
+func (t *Table) Schema() *Schema { return t.schema }
 
 // Insert encodes and stores a row. Returns ErrSchemaMismatch if the row's
 // shape or types do not match the table schema.

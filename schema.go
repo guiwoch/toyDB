@@ -1,4 +1,4 @@
-package db
+package toydb
 
 import (
 	"encoding/binary"
@@ -6,18 +6,26 @@ import (
 	"slices"
 )
 
+// ColType identifies the data type of a column.
+// New types cannot be defined outside this package.
 type ColType uint8
 
 const (
-	TypeInt  ColType = 1
+	// TypeInt stores values as 8-byte big-endian unsigned integers
+	// ([IntValue]).
+	TypeInt ColType = 1
+	// TypeText stores values as length-prefixed UTF-8 strings ([TextValue]).
 	TypeText ColType = 2
 )
 
+// Column describes a single column in a [Schema] by name and type.
 type Column struct {
 	Name string
 	Type ColType
 }
 
+// Schema describes a table's columns and primary key. Construct one with
+// [NewSchema]; the fields are unexported so all schemas pass validation.
 type Schema struct {
 	columns         []Column
 	primaryKeyIndex int
@@ -40,10 +48,11 @@ type Value interface {
 	encode(dst []byte) []byte
 }
 
-type (
-	IntValue  uint64
-	TextValue string
-)
+// IntValue is the [Value] for [TypeInt] columns.
+type IntValue uint64
+
+// TextValue is the [Value] for [TypeText] columns.
+type TextValue string
 
 func (v IntValue) encode(dst []byte) []byte {
 	return binary.BigEndian.AppendUint64(dst, uint64(v))
@@ -78,6 +87,8 @@ func decodeValue(buf []byte, t ColType) (Value, int, error) {
 	}
 }
 
+// Row is an ordered list of column values matching a [Schema]. Position i
+// in a Row corresponds to column i in the schema's column list.
 type Row []Value
 
 // decodeRow reconstructs a Row from the primary key value and the encoded

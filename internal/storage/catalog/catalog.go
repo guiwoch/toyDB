@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/guiwoch/toyDB/storage/btree"
+	"github.com/guiwoch/toyDB/internal/storage/btree"
 )
 
 // Row is the value stored per table in the catalog. SchemaBytes is the

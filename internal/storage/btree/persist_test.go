@@ -5,9 +5,9 @@ import (
 	"encoding/binary"
 	"testing"
 
-	"github.com/guiwoch/toyDB/storage/btree"
-	"github.com/guiwoch/toyDB/storage/page"
-	"github.com/guiwoch/toyDB/storage/pager"
+	"github.com/guiwoch/toyDB/internal/storage/btree"
+	"github.com/guiwoch/toyDB/internal/storage/page"
+	"github.com/guiwoch/toyDB/internal/storage/pager"
 )
 
 func TestPersistence(t *testing.T) {

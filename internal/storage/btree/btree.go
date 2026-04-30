@@ -4,8 +4,8 @@ package btree
 import (
 	"encoding/binary"
 
-	"github.com/guiwoch/toyDB/storage/page"
-	"github.com/guiwoch/toyDB/storage/pager"
+	"github.com/guiwoch/toyDB/internal/storage/page"
+	"github.com/guiwoch/toyDB/internal/storage/pager"
 )
 
 type Btree struct {

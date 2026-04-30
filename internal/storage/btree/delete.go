@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/guiwoch/toyDB/storage/page"
+	"github.com/guiwoch/toyDB/internal/storage/page"
 )
 
 var ErrKeyNotFound = errors.New("key not found")

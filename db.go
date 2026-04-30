@@ -1,16 +1,27 @@
-// Package db provides the top-level DB type: one file, one pager, one catalog
-// tree, and N user-table B+trees sharing the pager.
-package db
+// Package toydb is an embedded key-value store with typed rows and primary-key
+// indexing. A single file holds one or more tables; each table is indexed
+// by its primary key.
+//
+// Users define a [Schema] (columns plus a primary key), create a [Table]
+// via [DB.CreateTable], and operate on rows through [Table.Insert],
+// [Table.Get], [Table.Update], [Table.Delete], and the [Table.Scan] /
+// [Table.ScanDescending] iterators.
+//
+// Not yet supported: concurrent access, transactions, crash
+// recovery, SQL. The DB is single-process, single-threaded, and durable
+// only at [DB.Close]. See [Value] for the closed set of supported column
+// types.
+package toydb
 
 import (
 	"encoding/binary"
 	"errors"
 	"fmt"
 
-	"github.com/guiwoch/toyDB/storage/btree"
-	"github.com/guiwoch/toyDB/storage/catalog"
-	"github.com/guiwoch/toyDB/storage/page"
-	"github.com/guiwoch/toyDB/storage/pager"
+	"github.com/guiwoch/toyDB/internal/storage/btree"
+	"github.com/guiwoch/toyDB/internal/storage/catalog"
+	"github.com/guiwoch/toyDB/internal/storage/page"
+	"github.com/guiwoch/toyDB/internal/storage/pager"
 )
 
 const (
@@ -23,7 +34,7 @@ type dbHeader struct {
 	magic         uint32
 	version       uint32
 	catalogRootID uint32
-	freeListHead  uint32 // reserved for stage 2 (linked freelist)
+	freeListHead  uint32
 }
 
 func (h dbHeader) encode() []byte {
@@ -54,14 +65,32 @@ func decodeHeader(buf []byte) (dbHeader, error) {
 	return h, nil
 }
 
+// Sentinel errors returned by DB and Table methods. Callers can match them
+// with errors.Is. Wrapped errors carry a human-readable detail in their
+// message but preserve the sentinel for matching.
 var (
-	ErrTableExists     = errors.New("table already exists")
-	ErrTableNotFound   = errors.New("table not found")
-	ErrNotFound        = errors.New("row not found")
-	ErrSchemaMismatch  = errors.New("row does not match schema")
+	// ErrTableExists is returned by CreateTable when a table with the same
+	// name already exists.
+	ErrTableExists = errors.New("table already exists")
+
+	// ErrTableNotFound is returned by OpenTable and DropTable when no
+	// table with the given name exists.
+	ErrTableNotFound = errors.New("table not found")
+
+	// ErrNotFound is returned by Get when no row matches the given key.
+	ErrNotFound = errors.New("row not found")
+
+	// ErrSchemaMismatch is returned by Insert and Update when a row's
+	// length or column types do not match the table schema.
+	ErrSchemaMismatch = errors.New("row does not match schema")
+
+	// ErrKeyTypeMismatch is returned by Get, Delete, Scan, and
+	// ScanDescending when a key argument's runtime type does not match
+	// the primary key column type.
 	ErrKeyTypeMismatch = errors.New("key value type does not match primary key column type")
 )
 
+// DB is a handle to an open database file.
 type DB struct {
 	pager   *pager.Pager
 	catalog *catalog.Catalog
@@ -69,7 +98,9 @@ type DB struct {
 	open    map[string]*Table
 }
 
-// Open opens or creates a DB at the given path.
+// Open opens the DB at path, creating a new file if none exists. The
+// returned DB must be closed with Close to persist any changes; durability
+// is guaranteed by Close, not by individual writes.
 func Open(path string) (*DB, error) {
 	p, fresh, err := pager.Open(path)
 	if err != nil {
@@ -118,8 +149,8 @@ func Open(path string) (*DB, error) {
 	return d, nil
 }
 
-// CreateTable allocates a root leaf, records the table in the catalog, and
-// returns a Table bound to the given schema.
+// CreateTable creates a new table with the given schema.
+// Returns [ErrTableExists] if a table with that name already exists.
 func (d *DB) CreateTable(name string, s *Schema) (*Table, error) {
 	if _, ok, err := d.catalog.Lookup(name); err != nil {
 		return nil, err
@@ -141,6 +172,8 @@ func (d *DB) CreateTable(name string, s *Schema) (*Table, error) {
 	return t, nil
 }
 
+// DropTable removes a table and frees its pages. Returns ErrTableNotFound
+// if no table with the given name exists.
 func (d *DB) DropTable(name string) error {
 	table, err := d.OpenTable(name)
 	if err != nil {
@@ -200,7 +233,7 @@ func (d *DB) Close() error {
 	return d.pager.Close()
 }
 
-// Tables lists the names of all tables
+// Tables returns the names of all tables in the DB, in unspecified order.
 func (d *DB) Tables() []string {
 	return d.catalog.Names()
 }

@@ -6,7 +6,7 @@ import (
 	"os"
 	"slices"
 
-	"github.com/guiwoch/toyDB/storage/page"
+	"github.com/guiwoch/toyDB/internal/storage/page"
 )
 
 // openFile opens the specified file or creates one if it doesn't exist.

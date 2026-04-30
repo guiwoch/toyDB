@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/guiwoch/toyDB/storage/page"
+	"github.com/guiwoch/toyDB/internal/storage/page"
 )
 
 type record struct {

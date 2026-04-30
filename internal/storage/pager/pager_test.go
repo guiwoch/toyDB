@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/guiwoch/toyDB/storage/page"
+	"github.com/guiwoch/toyDB/internal/storage/page"
 )
 
 func TestChecksumDetectsCorruption(t *testing.T) {

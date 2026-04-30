@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/guiwoch/toyDB/storage/page"
+	"github.com/guiwoch/toyDB/internal/storage/page"
 )
 
 type splitResult struct {

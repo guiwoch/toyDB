@@ -6,8 +6,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/guiwoch/toyDB/storage/btree"
-	"github.com/guiwoch/toyDB/storage/page"
+	"github.com/guiwoch/toyDB/internal/storage/btree"
+	"github.com/guiwoch/toyDB/internal/storage/page"
 )
 
 func TestAscendingRangeFullScan(t *testing.T) {
