@@ -90,6 +90,22 @@ var (
 	ErrKeyTypeMismatch = errors.New("key value type does not match primary key column type")
 )
 
+// Option configures optional DB behavior.
+type Option func(*options)
+
+type options struct {
+	pagerOpts []pager.Option
+}
+
+// WithCacheSize sets the maximum number of pages held in the buffer pool.
+// Defaults to [pager.DefaultCacheSize] (1024 pages, ~8 MiB). A value of 0
+// disables the cap.
+func WithCacheSize(n int) Option {
+	return func(o *options) {
+		o.pagerOpts = append(o.pagerOpts, pager.WithCacheSize(n))
+	}
+}
+
 // DB is a handle to an open database file.
 type DB struct {
 	pager   *pager.Pager
@@ -101,8 +117,12 @@ type DB struct {
 // Open opens the DB at path, creating a new file if none exists. The
 // returned DB must be closed with Close to persist any changes; durability
 // is guaranteed by Close, not by individual writes.
-func Open(path string) (*DB, error) {
-	p, fresh, err := pager.Open(path)
+func Open(path string, opts ...Option) (*DB, error) {
+	var o options
+	for _, opt := range opts {
+		opt(&o)
+	}
+	p, fresh, err := pager.Open(path, o.pagerOpts...)
 	if err != nil {
 		return nil, err
 	}
