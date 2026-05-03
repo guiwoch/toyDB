@@ -24,6 +24,26 @@ type Pager struct {
 	lru         *list.List
 	lruNodes    map[uint32]*list.Element
 	pinnedCount int
+
+	hits      uint64
+	misses    uint64
+	evictions uint64
+}
+
+type Stats struct {
+	Hits      uint64
+	Misses    uint64
+	Evictions uint64
+	PageCount uint64
+}
+
+func (p *Pager) Stats() Stats {
+	return Stats{
+		Hits:      p.hits,
+		Misses:    p.misses,
+		Evictions: p.evictions,
+		PageCount: uint64(len(p.pages)),
+	}
 }
 
 // Option configures optional Pager behavior.
@@ -175,6 +195,7 @@ func (pager *Pager) Get(id uint32) *page.Page {
 			pager.pinnedCount++
 		}
 		pager.pins[id]++
+		pager.hits++
 		return pg
 	}
 	if err := pager.evictIfNeeded(); err != nil {
@@ -184,6 +205,7 @@ func (pager *Pager) Get(id uint32) *page.Page {
 	if err != nil {
 		panic(err)
 	}
+	pager.misses++
 	pager.pages[id] = pg
 	for uint32(len(pager.pins)) <= id {
 		pager.pins = append(pager.pins, 0)
@@ -243,6 +265,7 @@ func (pager *Pager) evictPage(id uint32, elem *list.Element) error {
 		delete(pager.dirty, id)
 	}
 	delete(pager.pages, id)
+	pager.evictions++
 	return nil
 }
 

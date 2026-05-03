@@ -257,3 +257,12 @@ func (d *DB) Close() error {
 func (d *DB) Tables() []string {
 	return d.catalog.Names()
 }
+
+type Stats struct {
+	Pager pager.Stats
+}
+
+// Stats returns a snapshot of the DB's counters.
+func (d *DB) Stats() Stats {
+	return Stats{Pager: d.pager.Stats()}
+}
