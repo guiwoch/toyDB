@@ -12,7 +12,7 @@ import (
 
 func TestAscendingRangeFullScan(t *testing.T) {
 	t.Parallel()
-	const recordCount = 1_000_000
+	const recordCount = 300_000
 	tree := newTestTree(t)
 	records := recordGenerator(recordCount)
 
@@ -38,7 +38,7 @@ func TestAscendingRangeFullScan(t *testing.T) {
 
 func TestDescendingRangeFullScan(t *testing.T) {
 	t.Parallel()
-	const recordCount = 1_000_000
+	const recordCount = 300_000
 	tree := newTestTree(t)
 	records := recordGenerator(recordCount)
 

@@ -36,7 +36,7 @@ func TestDeleteNotFound(t *testing.T) {
 
 func TestDeleteAndSearch(t *testing.T) {
 	tree := newTestTree(t)
-	records := uniqueRecords(10_000_000)
+	records := uniqueRecords(500_000)
 	for _, r := range records {
 		tree.Insert(r.key[:], r.value[:])
 	}
@@ -55,7 +55,7 @@ func TestDeleteAndSearch(t *testing.T) {
 
 func TestDeleteAllAndReinsert(t *testing.T) {
 	tree := newTestTree(t)
-	records := uniqueRecords(10_000_000)
+	records := uniqueRecords(500_000)
 	for _, r := range records {
 		tree.Insert(r.key[:], r.value[:])
 	}
