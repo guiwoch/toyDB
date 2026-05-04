@@ -222,6 +222,30 @@ func (p *Page) RecordSizeByIndex(i uint16) uint16 {
 	return slotSize + cellSize
 }
 
+// BalancedSplitIndex returns the slot index that divides the page's records
+// into two halves of approximately equal byte size.
+func (p *Page) BalancedSplitIndex() uint16 {
+	used := (PageSize - PageHeaderSize) - p.FreeSpace()
+	target := used / 2
+
+	read := uint16(0)
+	i := uint16(0)
+	for {
+		nextSize := p.RecordSizeByIndex(i)
+		i++
+		if (read + nextSize) >= target {
+			diffRead := target - read
+			diffWithNext := (read + nextSize) - target
+			if diffRead < diffWithNext {
+				return i - 1
+			} else {
+				return i
+			}
+		}
+		read += nextSize
+	}
+}
+
 // SearchKey returns the position where the key exists or would be inserted to
 // maintain sorted order. The bool indicates whether the key was found.
 func (p *Page) SearchKey(key []byte) (uint16, bool) {

@@ -99,26 +99,26 @@ func (b *Btree) splitInternal(pendingSplit *splitResult, p *page.Page) *splitRes
 	split := &splitResult{}
 	split.oldPageID = p.PageID()
 
-	midIdx := p.RecordCount() / 2 // TODO: Update to space-based splitting
-	midKey := p.KeyByIndex(midIdx)
+	splitIdx := p.BalancedSplitIndex()
+	splitKey := p.KeyByIndex(splitIdx)
 
-	// midPoint is promoted to the parent, so it's excluded from both children
-	leftRecords := p.ExtractRecords(0, midIdx)
-	rightRecords := p.ExtractRecords(midIdx+1, p.RecordCount())
+	// splitKey is promoted to the parent, so it's excluded from both children
+	leftRecords := p.ExtractRecords(0, splitIdx)
+	rightRecords := p.ExtractRecords(splitIdx+1, p.RecordCount())
 
 	split.left = b.pager.AllocateFromRecords(page.TypeInternal, leftRecords)
 	split.right = b.pager.AllocateFromRecords(page.TypeInternal, rightRecords)
-	split.promotedKey = midKey
+	split.promotedKey = splitKey
 
-	midKeyBytes := binary.BigEndian.Uint32(p.ValueByIndex(midIdx))
-	split.left.SetRightPointer(midKeyBytes)
+	splitKeyChildID := binary.BigEndian.Uint32(p.ValueByIndex(splitIdx))
+	split.left.SetRightPointer(splitKeyChildID)
 	split.right.SetRightPointer(p.RightPointer())
 
 	// insert the pending promoted key into the correct half
 	var leftID [4]byte
 	binary.BigEndian.PutUint32(leftID[:], pendingSplit.left.PageID())
 	var err error
-	if bytes.Compare(pendingSplit.promotedKey, midKey) >= 0 {
+	if bytes.Compare(pendingSplit.promotedKey, splitKey) >= 0 {
 		err = split.right.InsertRecord(pendingSplit.promotedKey, leftID[:])
 	} else {
 		err = split.left.InsertRecord(pendingSplit.promotedKey, leftID[:])
@@ -148,15 +148,15 @@ func (b *Btree) insertIntoLeaf(key, value []byte, p *page.Page) (*splitResult, e
 
 func (b *Btree) splitLeaf(key, value []byte, p *page.Page) *splitResult {
 	split := &splitResult{}
-	midIdx := p.RecordCount() / 2 // TODO: Change to space-based splitting
-	midKey := p.KeyByIndex(midIdx)
+	splitIdx := p.BalancedSplitIndex()
+	splitKey := p.KeyByIndex(splitIdx)
 
-	leftRecords := p.ExtractRecords(0, midIdx)
-	rightRecords := p.ExtractRecords(midIdx, p.RecordCount())
+	leftRecords := p.ExtractRecords(0, splitIdx)
+	rightRecords := p.ExtractRecords(splitIdx, p.RecordCount())
 
 	split.left = b.pager.AllocateFromRecords(page.TypeLeaf, leftRecords)
 	split.right = b.pager.AllocateFromRecords(page.TypeLeaf, rightRecords)
-	split.promotedKey = midKey
+	split.promotedKey = splitKey
 	split.oldPageID = p.PageID()
 
 	// update leaf linked-list
@@ -184,7 +184,7 @@ func (b *Btree) splitLeaf(key, value []byte, p *page.Page) *splitResult {
 
 	// insert the key into the correct half
 	var err error
-	if bytes.Compare(key, midKey) >= 0 {
+	if bytes.Compare(key, splitKey) >= 0 {
 		err = split.right.InsertRecord(key, value)
 	} else {
 		err = split.left.InsertRecord(key, value)
