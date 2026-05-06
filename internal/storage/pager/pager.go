@@ -31,18 +31,21 @@ type Pager struct {
 }
 
 type Stats struct {
-	Hits      uint64
-	Misses    uint64
-	Evictions uint64
-	PageCount uint64
+	Hits        uint64
+	Misses      uint64
+	Evictions   uint64
+	CachedPages uint64
+	TotalPages  uint64
 }
 
 func (p *Pager) Stats() Stats {
+	cachedPages := uint64(len(p.pages))
 	return Stats{
-		Hits:      p.hits,
-		Misses:    p.misses,
-		Evictions: p.evictions,
-		PageCount: uint64(len(p.pages)),
+		Hits:        p.hits,
+		Misses:      p.misses,
+		Evictions:   p.evictions,
+		CachedPages: cachedPages,
+		TotalPages:  uint64(p.newID - 1),
 	}
 }
 

@@ -258,11 +258,11 @@ func (d *DB) Tables() []string {
 	return d.catalog.Names()
 }
 
-type Stats struct {
-	Pager pager.Stats
-}
+// Stats is the type returned by [DB.Stats], aliased from the pager so
+// callers do not need to import the pager package to name it.
+type Stats = pager.Stats
 
 // Stats returns a snapshot of the DB's counters.
 func (d *DB) Stats() Stats {
-	return Stats{Pager: d.pager.Stats()}
+	return d.pager.Stats()
 }

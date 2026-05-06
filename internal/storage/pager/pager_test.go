@@ -117,6 +117,23 @@ func TestCacheRespectsCap(t *testing.T) {
 	}
 }
 
+func TestStatsTotalPagesTracksAllocations(t *testing.T) {
+	p, _, err := Open(t.TempDir()+"/test", WithCacheSize(2))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer p.Close()
+
+	for range 5 {
+		pg := p.Allocate(page.TypeLeaf)
+		p.Unpin(pg.PageID())
+	}
+
+	if stats := p.Stats(); stats.TotalPages != 5 {
+		t.Fatalf("expected 5 total managed pages, got %d", stats.TotalPages)
+	}
+}
+
 func TestCacheDoesNotEvictPinned(t *testing.T) {
 	p, _, err := Open(t.TempDir()+"/test", WithCacheSize(2))
 	if err != nil {
