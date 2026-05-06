@@ -189,7 +189,8 @@ func (b *Btree) merge(parent, child *page.Page, childIdx uint16) (bool, error) {
 	if childIdx > 0 {
 		leftSibling := b.pager.Get(b.findChildID(parent, childIdx-1))
 		defer b.pager.Unpin(leftSibling.PageID())
-		if page.CanMerge(child, leftSibling) {
+		descend := descendingRecordBytes(parent, childIdx-1, child.PageType())
+		if page.CanMerge(child, leftSibling, descend) {
 			return b.mergeWithLeft(parent, child, leftSibling, childIdx)
 		}
 	}
@@ -197,12 +198,24 @@ func (b *Btree) merge(parent, child *page.Page, childIdx uint16) (bool, error) {
 	if childIdx < parent.RecordCount() {
 		rightSibling := b.pager.Get(b.findChildID(parent, childIdx+1))
 		defer b.pager.Unpin(rightSibling.PageID())
-		if page.CanMerge(child, rightSibling) {
+		descend := descendingRecordBytes(parent, childIdx, child.PageType())
+		if page.CanMerge(child, rightSibling, descend) {
 			return b.mergeWithRight(parent, child, rightSibling, childIdx)
 		}
 	}
 
 	return false, nil
+}
+
+// descendingRecordBytes is the page footprint of the parent separator that
+// will descend into a merged internal page. Zero for leaf merges, where no
+// separator descends.
+func descendingRecordBytes(parent *page.Page, sepIdx uint16, childType uint8) int {
+	if childType == page.TypeLeaf {
+		return 0
+	}
+	const childPointerLen = 4
+	return page.RecordFootprint(len(parent.KeyByIndex(sepIdx)), childPointerLen)
 }
 
 func (b *Btree) mergeWithLeft(parent, child, left *page.Page, childIdx uint16) (bool, error) {

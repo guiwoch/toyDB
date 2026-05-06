@@ -275,6 +275,16 @@ func (p *Page) BytesUntilUnderflow() int {
 	return int((PageSize-PageHeaderSize)/2) - int(p.FreeSpace())
 }
 
-func CanMerge(a, b *Page) bool {
-	return a.BytesUntilUnderflow()+b.BytesUntilUnderflow() <= 0
+// RecordFootprint reports the bytes a record of the given key and value
+// length consumes on a page, including its cell header and slot.
+func RecordFootprint(keyLen, valueLen int) int {
+	return cellHeaderSize + keyLen + valueLen + slotSize
+}
+
+// CanMerge reports whether two underflowing pages combine into one. Pass
+// the footprint of any record that will descend into the merged page (the
+// parent separator for an internal merge) as descendingBytes; pass 0 for
+// leaf merges.
+func CanMerge(a, b *Page, descendingBytes int) bool {
+	return a.BytesUntilUnderflow()+b.BytesUntilUnderflow()+descendingBytes <= 0
 }
