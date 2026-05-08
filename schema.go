@@ -12,8 +12,9 @@ import (
 type ColType uint8
 
 const (
-	// TypeInt stores values as 8-byte big-endian unsigned integers
-	// ([IntValue]).
+	// TypeInt stores values as 8-byte big-endian signed integers
+	// ([IntValue]). The sign bit is flipped before encoding so that
+	// lexicographic byte order matches signed numeric order.
 	TypeInt ColType = iota + 1
 	// TypeText stores values as length-prefixed UTF-8 strings ([TextValue]).
 	TypeText
@@ -62,7 +63,7 @@ type Value interface {
 }
 
 // IntValue is the [Value] for [TypeInt] columns.
-type IntValue uint64
+type IntValue int64
 
 // TextValue is the [Value] for [TypeText] columns.
 type TextValue string
@@ -91,7 +92,7 @@ func (v TimestampValue) String() string {
 }
 
 func (v IntValue) encode(dst []byte) []byte {
-	return binary.BigEndian.AppendUint64(dst, uint64(v))
+	return binary.BigEndian.AppendUint64(dst, uint64(v)^(1<<63))
 }
 
 func (v TextValue) encode(dst []byte) []byte {
@@ -116,8 +117,8 @@ func decodeValue(buf []byte, t ColType) (Value, int, error) {
 		if len(buf) < 8 {
 			return nil, 0, fmt.Errorf("decode int: need 8 bytes, have %d", len(buf))
 		}
-		n := binary.BigEndian.Uint64(buf[:8])
-		return IntValue(n), 8, nil
+		n := binary.BigEndian.Uint64(buf[:8]) ^ (1 << 63)
+		return IntValue(int64(n)), 8, nil
 
 	case TypeText:
 		if len(buf) < 4 {
