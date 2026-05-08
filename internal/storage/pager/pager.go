@@ -9,8 +9,8 @@ import (
 	"github.com/guiwoch/toyDB/internal/storage/page"
 )
 
-// DefaultCacheSize caps the buffer pool at 1024 pages (~8 MiB) by default.
-const DefaultCacheSize = 1024
+// DefaultCacheSize caps the buffer pool at 4096 pages (~32 MiB) by default.
+const DefaultCacheSize = 4096
 
 type Pager struct {
 	pins         []uint8
@@ -108,7 +108,7 @@ func (pager *Pager) NewID() uint32 {
 // allocateID returns the next available page ID, popping from the freelist
 // LIFO when possible. It grows the pins slice to hold the new ID and sets its
 // pin count to 1.
-func (pager *Pager) allocateID() uint32 {
+func (pager *Pager) allocateID() (uint32, error) {
 	var id uint32
 	if pager.freeListHead == 0 {
 		id = pager.newID
@@ -117,7 +117,7 @@ func (pager *Pager) allocateID() uint32 {
 		id = pager.freeListHead
 		next, err := pager.peekNextFree(id)
 		if err != nil {
-			panic(fmt.Sprintf("pager: walking freelist at page %d: %v", id, err))
+			return 0, fmt.Errorf("pager: walking freelist at page %d: %w", id, err)
 		}
 		pager.freeListHead = next
 		// If the freed page was still in cache, drop it before reinitialization.
@@ -128,7 +128,7 @@ func (pager *Pager) allocateID() uint32 {
 	}
 	pager.pins[id] = 1
 	pager.pinnedCount++
-	return id
+	return id, nil
 }
 
 // peekNextFree reads the NextFree pointer of a page on the freelist, faulting
@@ -145,26 +145,32 @@ func (pager *Pager) peekNextFree(id uint32) (uint32, error) {
 	return pg.NextFree(), nil
 }
 
-func (pager *Pager) Allocate(pageType uint8) *page.Page {
+func (pager *Pager) Allocate(pageType uint8) (*page.Page, error) {
 	if err := pager.evictIfNeeded(); err != nil {
-		panic(err)
+		return nil, err
 	}
-	id := pager.allocateID()
+	id, err := pager.allocateID()
+	if err != nil {
+		return nil, err
+	}
 	newPage := page.NewPage(id, pageType)
 	pager.pages[id] = newPage
 	pager.dirty[id] = struct{}{}
-	return newPage
+	return newPage, nil
 }
 
-func (pager *Pager) AllocateFromRecords(pageType uint8, records *page.Records) *page.Page {
+func (pager *Pager) AllocateFromRecords(pageType uint8, records *page.Records) (*page.Page, error) {
 	if err := pager.evictIfNeeded(); err != nil {
-		panic(err)
+		return nil, err
 	}
-	id := pager.allocateID()
+	id, err := pager.allocateID()
+	if err != nil {
+		return nil, err
+	}
 	newPage := page.NewPageFromRecords(id, pageType, records)
 	pager.pages[id] = newPage
 	pager.dirty[id] = struct{}{}
-	return newPage
+	return newPage, nil
 }
 
 // Free pushes the page onto the freelist so its ID can be reused. The page
@@ -188,7 +194,7 @@ func (pager *Pager) Free(id uint32) bool {
 	return true
 }
 
-func (pager *Pager) Get(id uint32) *page.Page {
+func (pager *Pager) Get(id uint32) (*page.Page, error) {
 	if pg, ok := pager.pages[id]; ok {
 		if elem, inLRU := pager.lruNodes[id]; inLRU {
 			pager.lru.Remove(elem)
@@ -199,14 +205,14 @@ func (pager *Pager) Get(id uint32) *page.Page {
 		}
 		pager.pins[id]++
 		pager.hits++
-		return pg
+		return pg, nil
 	}
 	if err := pager.evictIfNeeded(); err != nil {
-		panic(err)
+		return nil, err
 	}
 	pg, err := pager.readPage(id)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	pager.misses++
 	pager.pages[id] = pg
@@ -215,7 +221,7 @@ func (pager *Pager) Get(id uint32) *page.Page {
 	}
 	pager.pins[id] = 1
 	pager.pinnedCount++
-	return pg
+	return pg, nil
 }
 
 func (pager *Pager) Unpin(id uint32) {

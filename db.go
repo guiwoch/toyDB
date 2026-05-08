@@ -98,7 +98,7 @@ type options struct {
 }
 
 // WithCacheSize sets the maximum number of pages held in the buffer pool.
-// Defaults to [pager.DefaultCacheSize] (1024 pages, ~8 MiB). A value of 0
+// Defaults to [pager.DefaultCacheSize] (4096 pages, ~32 MiB). A value of 0
 // disables the cap.
 func WithCacheSize(n int) Option {
 	return func(o *options) {
@@ -131,10 +131,19 @@ func Open(path string, opts ...Option) (*DB, error) {
 		open:  make(map[string]*Table),
 	}
 	if fresh {
-		root := p.Allocate(page.TypeLeaf)
+		root, err := p.Allocate(page.TypeLeaf)
+		if err != nil {
+			p.Close()
+			return nil, err
+		}
 		rootID := root.PageID()
 		p.Unpin(rootID)
-		d.catalog = catalog.Open(btree.Open(p, rootID))
+		tree, err := btree.Open(p, rootID)
+		if err != nil {
+			p.Close()
+			return nil, err
+		}
+		d.catalog = catalog.Open(tree)
 		d.header = dbHeader{
 			magic:         magicNumber,
 			version:       currentVersion,
@@ -165,7 +174,12 @@ func Open(path string, opts ...Option) (*DB, error) {
 	}
 	d.header = h
 	p.SetFreeListHead(h.freeListHead)
-	d.catalog = catalog.Open(btree.Open(p, h.catalogRootID))
+	tree, err := btree.Open(p, h.catalogRootID)
+	if err != nil {
+		p.Close()
+		return nil, err
+	}
+	d.catalog = catalog.Open(tree)
 	return d, nil
 }
 
@@ -177,10 +191,16 @@ func (d *DB) CreateTable(name string, s *Schema) (*Table, error) {
 	} else if ok {
 		return nil, ErrTableExists
 	}
-	root := d.pager.Allocate(page.TypeLeaf)
+	root, err := d.pager.Allocate(page.TypeLeaf)
+	if err != nil {
+		return nil, err
+	}
 	rootID := root.PageID()
 	d.pager.Unpin(rootID)
-	tree := btree.Open(d.pager, rootID)
+	tree, err := btree.Open(d.pager, rootID)
+	if err != nil {
+		return nil, err
+	}
 	if err := d.catalog.Upsert(name, catalog.Row{
 		RootID:      rootID,
 		SchemaBytes: s.marshal(),
@@ -203,8 +223,7 @@ func (d *DB) DropTable(name string) error {
 		return err
 	}
 	delete(d.open, name)
-	table.tree.Destroy()
-	return nil
+	return table.tree.Destroy()
 }
 
 // OpenTable returns the Table for an existing table name, caching it for the
@@ -224,7 +243,10 @@ func (d *DB) OpenTable(name string) (*Table, error) {
 	if err != nil {
 		return nil, err
 	}
-	tree := btree.Open(d.pager, row.RootID)
+	tree, err := btree.Open(d.pager, row.RootID)
+	if err != nil {
+		return nil, err
+	}
 	t := &Table{name: name, schema: s, tree: tree}
 	d.open[name] = t
 	return t, nil
@@ -254,7 +276,7 @@ func (d *DB) Close() error {
 }
 
 // Tables returns the names of all tables in the DB, in unspecified order.
-func (d *DB) Tables() []string {
+func (d *DB) Tables() ([]string, error) {
 	return d.catalog.Names()
 }
 

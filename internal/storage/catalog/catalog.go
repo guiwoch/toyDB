@@ -51,9 +51,12 @@ func Open(tree *btree.Btree) *Catalog {
 }
 
 func (c *Catalog) Lookup(name string) (Row, bool, error) {
-	value, found := c.tree.Search([]byte(name))
-	if !found {
+	value, err := c.tree.Search([]byte(name))
+	if errors.Is(err, btree.ErrKeyNotFound) {
 		return Row{}, false, nil
+	}
+	if err != nil {
+		return Row{}, false, err
 	}
 	row, err := decodeRow(value)
 	if err != nil {
@@ -84,10 +87,13 @@ func (c *Catalog) Delete(name string) error {
 }
 
 // Names returns all the names of the tables on the catalog
-func (c *Catalog) Names() []string {
+func (c *Catalog) Names() ([]string, error) {
 	var names []string
-	for record := range c.tree.AscendingRange(nil, nil) {
+	for record, err := range c.tree.AscendingRange(nil, nil) {
+		if err != nil {
+			return nil, err
+		}
 		names = append(names, string(record.Key))
 	}
-	return names
+	return names, nil
 }

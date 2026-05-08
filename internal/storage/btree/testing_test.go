@@ -26,8 +26,15 @@ func newTestTree(t *testing.T) *btree.Btree {
 		}
 	})
 
-	root := p.Allocate(page.TypeLeaf)
+	root, err := p.Allocate(page.TypeLeaf)
+	if err != nil {
+		t.Fatal(err)
+	}
 	rootID := root.PageID()
 	p.Unpin(rootID)
-	return btree.Open(p, rootID)
+	tree, err := btree.Open(p, rootID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return tree
 }

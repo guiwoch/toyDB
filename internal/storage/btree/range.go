@@ -11,13 +11,18 @@ type Record struct{ Key, Value []byte }
 
 // AscendingRange returns records with keys in [lo, hi), ascending.
 // A nil bound means unbounded on that side.
-func (b *Btree) AscendingRange(lo, hi []byte) iter.Seq[Record] {
-	return func(yield func(Record) bool) {
+func (b *Btree) AscendingRange(lo, hi []byte) iter.Seq2[Record, error] {
+	return func(yield func(Record, error) bool) {
 		var p *page.Page
+		var err error
 		if lo == nil { // use the first page
-			p = b.pager.Get(b.firstLeafID)
+			p, err = b.pager.Get(b.firstLeafID)
 		} else {
-			p = b.findLeaf(lo)
+			p, err = b.findLeaf(lo)
+		}
+		if err != nil {
+			yield(Record{}, err)
+			return
 		}
 
 		if p.RecordCount() == 0 {
@@ -35,7 +40,8 @@ func (b *Btree) AscendingRange(lo, hi []byte) iter.Seq[Record] {
 			}
 			value := p.ValueByIndex(i)
 
-			if !yield(Record{Key: key, Value: value}) {
+			if !yield(Record{Key: key, Value: value}, nil) {
+				b.pager.Unpin(p.PageID())
 				return
 			}
 
@@ -44,8 +50,12 @@ func (b *Btree) AscendingRange(lo, hi []byte) iter.Seq[Record] {
 					break
 				}
 
-				nextPage := b.pager.Get(p.NextLeaf())
+				nextPage, err := b.pager.Get(p.NextLeaf())
 				b.pager.Unpin(p.PageID())
+				if err != nil {
+					yield(Record{}, err)
+					return
+				}
 				p = nextPage
 				i = 0
 			} else {
@@ -58,19 +68,28 @@ func (b *Btree) AscendingRange(lo, hi []byte) iter.Seq[Record] {
 
 // DescendingRange returns records with keys in (lo, hi], descending.
 // A nil bound means unbounded on that side.
-func (b *Btree) DescendingRange(lo, hi []byte) iter.Seq[Record] {
-	return func(yield func(Record) bool) {
+func (b *Btree) DescendingRange(lo, hi []byte) iter.Seq2[Record, error] {
+	return func(yield func(Record, error) bool) {
 		var p *page.Page
+		var err error
 
 		if hi == nil { // use the last page
-			p = b.pager.Get(b.lastLeafID)
+			p, err = b.pager.Get(b.lastLeafID)
+			if err != nil {
+				yield(Record{}, err)
+				return
+			}
 			if p.RecordCount() == 0 {
 				b.pager.Unpin(p.PageID())
 				return
 			}
 			hi = p.KeyByIndex(p.RecordCount() - 1)
 		} else {
-			p = b.findLeaf(hi)
+			p, err = b.findLeaf(hi)
+			if err != nil {
+				yield(Record{}, err)
+				return
+			}
 			if p.RecordCount() == 0 {
 				b.pager.Unpin(p.PageID())
 				return
@@ -88,7 +107,8 @@ func (b *Btree) DescendingRange(lo, hi []byte) iter.Seq[Record] {
 				break
 			}
 			value := p.ValueByIndex(i)
-			if !yield(Record{Key: key, Value: value}) {
+			if !yield(Record{Key: key, Value: value}, nil) {
+				b.pager.Unpin(p.PageID())
 				return
 			}
 
@@ -97,8 +117,12 @@ func (b *Btree) DescendingRange(lo, hi []byte) iter.Seq[Record] {
 					break
 				}
 
-				prevPage := b.pager.Get(p.PrevLeaf())
+				prevPage, err := b.pager.Get(p.PrevLeaf())
 				b.pager.Unpin(p.PageID())
+				if err != nil {
+					yield(Record{}, err)
+					return
+				}
 				p = prevPage
 				i = p.RecordCount() - 1
 			} else {

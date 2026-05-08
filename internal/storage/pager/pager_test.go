@@ -16,7 +16,10 @@ func TestChecksumDetectsCorruption(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pg := p.Allocate(page.TypeLeaf)
+	pg, err := p.Allocate(page.TypeLeaf)
+	if err != nil {
+		t.Fatal(err)
+	}
 	id := pg.PageID()
 	if err := pg.InsertRecord([]byte{0, 0, 0, 1}, []byte("hello")); err != nil {
 		t.Fatal(err)
@@ -58,7 +61,11 @@ func TestChecksumDetectsCorruption(t *testing.T) {
 
 func allocID(t *testing.T, p *Pager) uint32 {
 	t.Helper()
-	return p.Allocate(page.TypeLeaf).PageID()
+	pg, err := p.Allocate(page.TypeLeaf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return pg.PageID()
 }
 
 func TestFreelistReusesIDsLIFO(t *testing.T) {
@@ -96,7 +103,10 @@ func TestCacheRespectsCap(t *testing.T) {
 
 	var ids []uint32
 	for range 10 {
-		pg := p.Allocate(page.TypeLeaf)
+		pg, err := p.Allocate(page.TypeLeaf)
+		if err != nil {
+			t.Fatal(err)
+		}
 		id := pg.PageID()
 		ids = append(ids, id)
 		p.Unpin(id)
@@ -109,7 +119,9 @@ func TestCacheRespectsCap(t *testing.T) {
 	}
 	// Fault pages back in via Get; cap still enforced.
 	for _, id := range ids {
-		p.Get(id)
+		if _, err := p.Get(id); err != nil {
+			t.Fatal(err)
+		}
 		p.Unpin(id)
 		if len(p.pages) > 4 {
 			t.Fatalf("cache exceeded cap=4 after Get(%d): have %d", id, len(p.pages))
@@ -125,7 +137,10 @@ func TestStatsTotalPagesTracksAllocations(t *testing.T) {
 	defer p.Close()
 
 	for range 5 {
-		pg := p.Allocate(page.TypeLeaf)
+		pg, err := p.Allocate(page.TypeLeaf)
+		if err != nil {
+			t.Fatal(err)
+		}
 		p.Unpin(pg.PageID())
 	}
 
@@ -141,7 +156,10 @@ func TestCacheDoesNotEvictPinned(t *testing.T) {
 	}
 	defer p.Close()
 
-	pinnedPage := p.Allocate(page.TypeLeaf)
+	pinnedPage, err := p.Allocate(page.TypeLeaf)
+	if err != nil {
+		t.Fatal(err)
+	}
 	pinned := pinnedPage.PageID() // stays pinned
 	if err := p.Flush(); err != nil {
 		t.Fatal(err)
@@ -149,7 +167,10 @@ func TestCacheDoesNotEvictPinned(t *testing.T) {
 
 	// Fill the cap (pinned is 1 of 2); allocate several more, unpinning each.
 	for range 10 {
-		pg := p.Allocate(page.TypeLeaf)
+		pg, err := p.Allocate(page.TypeLeaf)
+		if err != nil {
+			t.Fatal(err)
+		}
 		p.Unpin(pg.PageID())
 	}
 	if _, stillCached := p.pages[pinned]; !stillCached {

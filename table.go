@@ -1,6 +1,7 @@
 package toydb
 
 import (
+	"errors"
 	"iter"
 
 	"github.com/guiwoch/toyDB/internal/storage/btree"
@@ -42,9 +43,12 @@ func (t *Table) Get(keyVal Value) (Row, error) {
 		return nil, err
 	}
 	key := t.schema.encodeKeyFromValue(keyVal)
-	val, ok := t.tree.Search(key)
-	if !ok {
+	val, err := t.tree.Search(key)
+	if errors.Is(err, btree.ErrKeyNotFound) {
 		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
 	}
 	return t.schema.decodeRow(keyVal, val)
 }
@@ -99,8 +103,11 @@ func (t *Table) Scan(lo, hi Value) iter.Seq2[Row, error] {
 			}
 			hiKey = t.schema.encodeKeyFromValue(hi)
 		}
-		recs := t.tree.AscendingRange(loKey, hiKey)
-		for r := range recs {
+		for r, err := range t.tree.AscendingRange(loKey, hiKey) {
+			if err != nil {
+				yield(nil, err)
+				return
+			}
 			pk, err := t.schema.decodeKey(r.Key)
 			if err != nil {
 				yield(nil, err)
@@ -141,8 +148,11 @@ func (t *Table) ScanDescending(lo, hi Value) iter.Seq2[Row, error] {
 			hiKey = t.schema.encodeKeyFromValue(hi)
 		}
 
-		recs := t.tree.DescendingRange(loKey, hiKey)
-		for r := range recs {
+		for r, err := range t.tree.DescendingRange(loKey, hiKey) {
+			if err != nil {
+				yield(nil, err)
+				return
+			}
 			pk, err := t.schema.decodeKey(r.Key)
 			if err != nil {
 				yield(nil, err)

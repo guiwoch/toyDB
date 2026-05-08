@@ -3,6 +3,7 @@ package btree_test
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"testing"
 
 	"github.com/guiwoch/toyDB/internal/storage/btree"
@@ -19,10 +20,16 @@ func TestPersistence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	root := p.Allocate(page.TypeLeaf)
+	root, err := p.Allocate(page.TypeLeaf)
+	if err != nil {
+		t.Fatal(err)
+	}
 	rootID := root.PageID()
 	p.Unpin(rootID)
-	tree := btree.Open(p, rootID)
+	tree, err := btree.Open(p, rootID)
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, r := range records {
 		tree.Insert(r.key[:], r.value[:])
 	}
@@ -48,13 +55,19 @@ func TestPersistence(t *testing.T) {
 		t.Fatal(err)
 	}
 	rootID = binary.BigEndian.Uint32(hdr[:])
-	tree = btree.Open(p, rootID)
+	tree, err = btree.Open(p, rootID)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for _, r := range records {
-		value, found := tree.Search(r.key[:])
-		if !found {
+		value, err := tree.Search(r.key[:])
+		if errors.Is(err, btree.ErrKeyNotFound) {
 			t.Errorf("key %v not found after reopen", r.key)
 			continue
+		}
+		if err != nil {
+			t.Fatal(err)
 		}
 		if !bytes.Equal(value, r.value[:]) {
 			t.Errorf("wrong value for key %v: got %v, want %v", r.key, value, r.value)

@@ -3,8 +3,11 @@ package btree_test
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"math/rand"
 	"testing"
+
+	"github.com/guiwoch/toyDB/internal/storage/btree"
 )
 
 type record struct {
@@ -36,10 +39,13 @@ func TestInsertAndSearch(t *testing.T) {
 	}
 
 	for i := range records {
-		value, found := tree.Search(records[i].key[:])
-		if found == false {
+		value, err := tree.Search(records[i].key[:])
+		if errors.Is(err, btree.ErrKeyNotFound) {
 			t.Errorf("expected %v to be present on the tree", records[i].key)
 			continue
+		}
+		if err != nil {
+			t.Fatal(err)
 		}
 
 		if !bytes.Equal(records[i].value[:], value) {

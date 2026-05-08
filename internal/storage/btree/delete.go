@@ -11,24 +11,36 @@ import (
 var ErrKeyNotFound = errors.New("key not found")
 
 func (b *Btree) Delete(key []byte) error {
-	root := b.pager.Get(b.rootID)
+	root, err := b.pager.Get(b.rootID)
+	if err != nil {
+		return err
+	}
 	underflow, err := b.delete(key, root)
 	b.pager.Unpin(root.PageID())
-	if underflow {
-		b.collapseRoot()
+	if err != nil {
+		return err
 	}
-	return err
+	if underflow {
+		if err := b.collapseRoot(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-func (b *Btree) collapseRoot() {
-	root := b.pager.Get(b.rootID)
+func (b *Btree) collapseRoot() error {
+	root, err := b.pager.Get(b.rootID)
+	if err != nil {
+		return err
+	}
 	// the leaf root cannot be collapsed
 	if root.PageType() == page.TypeLeaf || root.RecordCount() > 0 {
 		b.pager.Unpin(root.PageID())
-		return
+		return nil
 	}
 	b.rootID = root.RightPointer()
 	b.pager.Free(root.PageID())
+	return nil
 }
 
 func (b *Btree) delete(key []byte, p *page.Page) (bool, error) {
@@ -50,7 +62,10 @@ func (b *Btree) deleteOnInternal(key []byte, p *page.Page) (bool, error) {
 		childIdx = i
 	}
 
-	childPage := b.findChild(key, p)
+	childPage, err := b.findChild(key, p)
+	if err != nil {
+		return false, err
+	}
 	underflow, err := b.delete(key, childPage)
 	if err != nil {
 		b.pager.Unpin(childPage.PageID())
@@ -63,7 +78,10 @@ func (b *Btree) deleteOnInternal(key []byte, p *page.Page) (bool, error) {
 		return false, nil
 	}
 
-	b.steal(p, childIdx)
+	if err := b.steal(p, childIdx); err != nil {
+		b.pager.Unpin(childPage.PageID())
+		return false, err
+	}
 	if childPage.BytesUntilUnderflow() >= 0 {
 		b.pager.Unpin(childPage.PageID())
 		return false, nil
@@ -72,20 +90,31 @@ func (b *Btree) deleteOnInternal(key []byte, p *page.Page) (bool, error) {
 	return b.merge(p, childPage, childIdx)
 }
 
-func (b *Btree) steal(parent *page.Page, childIdx uint16) {
+func (b *Btree) steal(parent *page.Page, childIdx uint16) error {
 	var leftSibling *page.Page
 	if childIdx > 0 {
-		leftSibling = b.pager.Get(b.findChildID(parent, childIdx-1))
+		var err error
+		leftSibling, err = b.pager.Get(b.findChildID(parent, childIdx-1))
+		if err != nil {
+			return err
+		}
 		defer b.pager.Unpin(leftSibling.PageID())
 	}
 
 	var rightSibling *page.Page
 	if childIdx < parent.RecordCount() {
-		rightSibling = b.pager.Get(b.findChildID(parent, childIdx+1))
+		var err error
+		rightSibling, err = b.pager.Get(b.findChildID(parent, childIdx+1))
+		if err != nil {
+			return err
+		}
 		defer b.pager.Unpin(rightSibling.PageID())
 	}
 
-	child := b.pager.Get(b.findChildID(parent, childIdx))
+	child, err := b.pager.Get(b.findChildID(parent, childIdx))
+	if err != nil {
+		return err
+	}
 	defer b.pager.Unpin(child.PageID())
 
 	for child.BytesUntilUnderflow() < 0 {
@@ -100,6 +129,7 @@ func (b *Btree) steal(parent *page.Page, childIdx uint16) {
 			break
 		}
 	}
+	return nil
 }
 
 func (b *Btree) stealFromLeft(parent, child, left *page.Page, childIdx uint16) {
@@ -187,7 +217,10 @@ func (b *Btree) merge(parent, child *page.Page, childIdx uint16) (bool, error) {
 	defer b.pager.Unpin(child.PageID())
 
 	if childIdx > 0 {
-		leftSibling := b.pager.Get(b.findChildID(parent, childIdx-1))
+		leftSibling, err := b.pager.Get(b.findChildID(parent, childIdx-1))
+		if err != nil {
+			return false, err
+		}
 		defer b.pager.Unpin(leftSibling.PageID())
 		descend := descendingRecordBytes(parent, childIdx-1, child.PageType())
 		if page.CanMerge(child, leftSibling, descend) {
@@ -196,7 +229,10 @@ func (b *Btree) merge(parent, child *page.Page, childIdx uint16) (bool, error) {
 	}
 
 	if childIdx < parent.RecordCount() {
-		rightSibling := b.pager.Get(b.findChildID(parent, childIdx+1))
+		rightSibling, err := b.pager.Get(b.findChildID(parent, childIdx+1))
+		if err != nil {
+			return false, err
+		}
 		defer b.pager.Unpin(rightSibling.PageID())
 		descend := descendingRecordBytes(parent, childIdx, child.PageType())
 		if page.CanMerge(child, rightSibling, descend) {
@@ -233,7 +269,9 @@ func (b *Btree) mergeWithLeft(parent, child, left *page.Page, childIdx uint16) (
 	*left = *page.NewPageFromRecords(left.PageID(), child.PageType(), merged)
 	if child.PageType() == page.TypeLeaf {
 		left.SetPrevLeaf(leftPrevLeaf)
-		b.unlinkLeaf(child)
+		if err := b.unlinkLeaf(child); err != nil {
+			return false, err
+		}
 	}
 	b.pager.Free(child.PageID())
 
@@ -278,7 +316,9 @@ func (b *Btree) mergeWithRight(parent, child, right *page.Page, childIdx uint16)
 	*right = *page.NewPageFromRecords(right.PageID(), child.PageType(), merged)
 	if child.PageType() == page.TypeLeaf {
 		right.SetNextLeaf(rightNextLeaf)
-		b.unlinkLeaf(child)
+		if err := b.unlinkLeaf(child); err != nil {
+			return false, err
+		}
 	}
 	b.pager.Free(child.PageID())
 
@@ -296,9 +336,12 @@ func (b *Btree) mergeWithRight(parent, child, right *page.Page, childIdx uint16)
 }
 
 // unlinkLeaf removes p from the leaf linked list by joining its neighbors together.
-func (b *Btree) unlinkLeaf(p *page.Page) {
+func (b *Btree) unlinkLeaf(p *page.Page) error {
 	if p.PrevLeaf() != 0 {
-		prev := b.pager.Get(p.PrevLeaf())
+		prev, err := b.pager.Get(p.PrevLeaf())
+		if err != nil {
+			return err
+		}
 		prev.SetNextLeaf(p.NextLeaf())
 		b.pager.MarkDirty(prev.PageID())
 		b.pager.Unpin(prev.PageID())
@@ -307,13 +350,17 @@ func (b *Btree) unlinkLeaf(p *page.Page) {
 	}
 
 	if p.NextLeaf() != 0 {
-		next := b.pager.Get(p.NextLeaf())
+		next, err := b.pager.Get(p.NextLeaf())
+		if err != nil {
+			return err
+		}
 		next.SetPrevLeaf(p.PrevLeaf())
 		b.pager.MarkDirty(next.PageID())
 		b.pager.Unpin(next.PageID())
 	} else {
 		b.lastLeafID = p.PrevLeaf()
 	}
+	return nil
 }
 
 func (b *Btree) deleteOnLeaf(key []byte, p *page.Page) (bool, error) {

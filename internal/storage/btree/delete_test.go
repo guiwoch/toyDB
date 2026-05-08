@@ -46,9 +46,9 @@ func TestDeleteAndSearch(t *testing.T) {
 			t.Errorf("unexpected error deleting key %v: %v", r.key, err)
 		}
 
-		_, found := tree.Search(r.key[:])
-		if found {
-			t.Errorf("expected key %v to be absent after deletion", r.key)
+		_, err := tree.Search(r.key[:])
+		if !errors.Is(err, btree.ErrKeyNotFound) {
+			t.Errorf("expected key %v to be absent after deletion (err=%v)", r.key, err)
 		}
 	}
 }
@@ -67,9 +67,9 @@ func TestDeleteAllAndReinsert(t *testing.T) {
 		tree.Insert(r.key[:], r.value[:])
 	}
 	for _, r := range records {
-		_, found := tree.Search(r.key[:])
-		if !found {
-			t.Errorf("expected key %v to be present after reinsert", r.key)
+		_, err := tree.Search(r.key[:])
+		if err != nil {
+			t.Errorf("expected key %v to be present after reinsert (err=%v)", r.key, err)
 		}
 	}
 }

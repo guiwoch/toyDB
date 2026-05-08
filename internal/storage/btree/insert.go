@@ -16,11 +16,20 @@ type splitResult struct {
 }
 
 func (b *Btree) Insert(key, value []byte) error {
-	root := b.pager.Get(b.rootID)
+	root, err := b.pager.Get(b.rootID)
+	if err != nil {
+		return err
+	}
 	splitRes, err := b.insert(key, value, root)
 	b.pager.Unpin(root.PageID())
+	if err != nil {
+		return err
+	}
 	if splitRes != nil {
-		newRoot := b.pager.Allocate(page.TypeInternal)
+		newRoot, err := b.pager.Allocate(page.TypeInternal)
+		if err != nil {
+			return err
+		}
 		var leftID [4]byte
 		binary.BigEndian.PutUint32(leftID[:], splitRes.left.PageID())
 		newRoot.InsertRecord(splitRes.promotedKey, leftID[:])
@@ -30,7 +39,7 @@ func (b *Btree) Insert(key, value []byte) error {
 		b.pager.Unpin(splitRes.left.PageID())
 		b.pager.Unpin(splitRes.right.PageID())
 	}
-	return err
+	return nil
 }
 
 func (b *Btree) insert(key, value []byte, p *page.Page) (*splitResult, error) {
@@ -45,20 +54,26 @@ func (b *Btree) insert(key, value []byte, p *page.Page) (*splitResult, error) {
 
 func (b *Btree) insertIntoInternal(key, value []byte, p *page.Page) (*splitResult, error) {
 	// decent: go towards the leaf
-	nextPage := b.findChild(key, p)
+	nextPage, err := b.findChild(key, p)
+	if err != nil {
+		return nil, err
+	}
 	splitRes, err := b.insert(key, value, nextPage)
 	b.pager.Unpin(nextPage.PageID())
+	if err != nil {
+		return nil, err
+	}
 
 	// unwinding: do updating and splitting
 	if splitRes != nil {
 		// the function return another splitRes that might happen during the updating
-		splitRes = b.updateFromSplit(splitRes, p)
+		return b.updateFromSplit(splitRes, p)
 	}
-	return splitRes, err
+	return nil, nil
 }
 
 // updateFromSplit updates the page if a split happened at one of its childs
-func (b *Btree) updateFromSplit(splitRes *splitResult, p *page.Page) *splitResult {
+func (b *Btree) updateFromSplit(splitRes *splitResult, p *page.Page) (*splitResult, error) {
 	b.pager.MarkDirty(p.PageID())
 	// find where the old page is located
 	for i := range p.RecordCount() {
@@ -92,10 +107,10 @@ func (b *Btree) updateFromSplit(splitRes *splitResult, p *page.Page) *splitResul
 	}
 	b.pager.Unpin(splitRes.left.PageID())
 	b.pager.Unpin(splitRes.right.PageID())
-	return nil
+	return nil, nil
 }
 
-func (b *Btree) splitInternal(pendingSplit *splitResult, p *page.Page) *splitResult {
+func (b *Btree) splitInternal(pendingSplit *splitResult, p *page.Page) (*splitResult, error) {
 	split := &splitResult{}
 	split.oldPageID = p.PageID()
 
@@ -106,8 +121,16 @@ func (b *Btree) splitInternal(pendingSplit *splitResult, p *page.Page) *splitRes
 	leftRecords := p.ExtractRecords(0, splitIdx)
 	rightRecords := p.ExtractRecords(splitIdx+1, p.RecordCount())
 
-	split.left = b.pager.AllocateFromRecords(page.TypeInternal, leftRecords)
-	split.right = b.pager.AllocateFromRecords(page.TypeInternal, rightRecords)
+	left, err := b.pager.AllocateFromRecords(page.TypeInternal, leftRecords)
+	if err != nil {
+		return nil, err
+	}
+	right, err := b.pager.AllocateFromRecords(page.TypeInternal, rightRecords)
+	if err != nil {
+		return nil, err
+	}
+	split.left = left
+	split.right = right
 	split.promotedKey = splitKey
 
 	splitKeyChildID := binary.BigEndian.Uint32(p.ValueByIndex(splitIdx))
@@ -117,7 +140,6 @@ func (b *Btree) splitInternal(pendingSplit *splitResult, p *page.Page) *splitRes
 	// insert the pending promoted key into the correct half
 	var leftID [4]byte
 	binary.BigEndian.PutUint32(leftID[:], pendingSplit.left.PageID())
-	var err error
 	if bytes.Compare(pendingSplit.promotedKey, splitKey) >= 0 {
 		err = split.right.InsertRecord(pendingSplit.promotedKey, leftID[:])
 	} else {
@@ -130,7 +152,7 @@ func (b *Btree) splitInternal(pendingSplit *splitResult, p *page.Page) *splitRes
 	b.pager.Unpin(pendingSplit.left.PageID())
 	b.pager.Unpin(pendingSplit.right.PageID())
 	b.pager.Free(p.PageID())
-	return split
+	return split, nil
 }
 
 func (b *Btree) insertIntoLeaf(key, value []byte, p *page.Page) (*splitResult, error) {
@@ -142,11 +164,10 @@ func (b *Btree) insertIntoLeaf(key, value []byte, p *page.Page) (*splitResult, e
 		return nil, err
 	}
 
-	splitRes := b.splitLeaf(key, value, p)
-	return splitRes, nil
+	return b.splitLeaf(key, value, p)
 }
 
-func (b *Btree) splitLeaf(key, value []byte, p *page.Page) *splitResult {
+func (b *Btree) splitLeaf(key, value []byte, p *page.Page) (*splitResult, error) {
 	split := &splitResult{}
 	splitIdx := p.BalancedSplitIndex()
 	splitKey := p.KeyByIndex(splitIdx)
@@ -154,8 +175,16 @@ func (b *Btree) splitLeaf(key, value []byte, p *page.Page) *splitResult {
 	leftRecords := p.ExtractRecords(0, splitIdx)
 	rightRecords := p.ExtractRecords(splitIdx, p.RecordCount())
 
-	split.left = b.pager.AllocateFromRecords(page.TypeLeaf, leftRecords)
-	split.right = b.pager.AllocateFromRecords(page.TypeLeaf, rightRecords)
+	left, err := b.pager.AllocateFromRecords(page.TypeLeaf, leftRecords)
+	if err != nil {
+		return nil, err
+	}
+	right, err := b.pager.AllocateFromRecords(page.TypeLeaf, rightRecords)
+	if err != nil {
+		return nil, err
+	}
+	split.left = left
+	split.right = right
 	split.promotedKey = splitKey
 	split.oldPageID = p.PageID()
 
@@ -166,7 +195,10 @@ func (b *Btree) splitLeaf(key, value []byte, p *page.Page) *splitResult {
 	split.right.SetNextLeaf(p.NextLeaf())
 
 	if p.PrevLeaf() != 0 {
-		prev := b.pager.Get(p.PrevLeaf())
+		prev, err := b.pager.Get(p.PrevLeaf())
+		if err != nil {
+			return nil, err
+		}
 		prev.SetNextLeaf(split.left.PageID())
 		b.pager.MarkDirty(prev.PageID())
 		b.pager.Unpin(prev.PageID())
@@ -174,7 +206,10 @@ func (b *Btree) splitLeaf(key, value []byte, p *page.Page) *splitResult {
 		b.firstLeafID = split.left.PageID()
 	}
 	if p.NextLeaf() != 0 {
-		next := b.pager.Get(p.NextLeaf())
+		next, err := b.pager.Get(p.NextLeaf())
+		if err != nil {
+			return nil, err
+		}
 		next.SetPrevLeaf(split.right.PageID())
 		b.pager.MarkDirty(next.PageID())
 		b.pager.Unpin(next.PageID())
@@ -183,7 +218,6 @@ func (b *Btree) splitLeaf(key, value []byte, p *page.Page) *splitResult {
 	}
 
 	// insert the key into the correct half
-	var err error
 	if bytes.Compare(key, splitKey) >= 0 {
 		err = split.right.InsertRecord(key, value)
 	} else {
@@ -194,5 +228,5 @@ func (b *Btree) splitLeaf(key, value []byte, p *page.Page) *splitResult {
 	}
 
 	b.pager.Free(p.PageID())
-	return split
+	return split, nil
 }
